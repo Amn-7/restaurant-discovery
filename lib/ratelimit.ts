@@ -17,26 +17,29 @@ function createLimiter(requests: number, interval: DurationString): Limiter {
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   const isProd = process.env.NODE_ENV === 'production';
 
-  if (url && token) {
-    const redis = new Redis({ url, token });
-    const ratelimit = new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(requests, interval)
-    });
+  if (url && token && url.startsWith('https://') && token.length > 10) {
+    try {
+      const redis = new Redis({ url, token });
+      const ratelimit = new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(requests, interval)
+      });
 
-    return {
-      limit: async (key: string) => {
-        const result = await ratelimit.limit(key);
-        return { success: result.success };
-      }
-    };
+      return {
+        limit: async (key: string) => {
+          const result = await ratelimit.limit(key);
+          return { success: result.success };
+        }
+      };
+    } catch (error) {
+      console.warn('[ratelimit] Failed to initialize Upstash Redis client:', error);
+      // Fall back to unlimited requests
+    }
   }
 
   if (isProd) {
-    throw new Error('UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be set in production');
-  }
-
-  if (process.env.NODE_ENV !== 'test' && !warnedAboutLimiter) {
+    console.warn('[ratelimit] Upstash credentials missing or invalid; falling back to unlimited requests.');
+  } else if (process.env.NODE_ENV !== 'test' && !warnedAboutLimiter) {
     console.warn('[ratelimit] Upstash credentials missing; falling back to unlimited requests.');
     warnedAboutLimiter = true;
   }
