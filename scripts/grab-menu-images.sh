@@ -5,6 +5,35 @@ set -euo pipefail
 OUT_DIR="public/menu"
 mkdir -p "$OUT_DIR"
 
+if command -v sips >/dev/null 2>&1; then
+  REENCODE_TOOL="sips"
+elif command -v magick >/dev/null 2>&1; then
+  REENCODE_TOOL="magick"
+elif command -v convert >/dev/null 2>&1; then
+  REENCODE_TOOL="convert"
+else
+  REENCODE_TOOL=""
+  echo "Info: no image re-encode tool detected; downloads kept as-is." >&2
+fi
+
+reencode_jpeg() {
+  local file="$1"
+  case "$REENCODE_TOOL" in
+    sips)
+      sips -s format jpeg "$file" --out "$file" >/dev/null 2>&1 || true
+      ;;
+    magick)
+      magick "$file" -quality 92 "$file" >/dev/null 2>&1 || true
+      ;;
+    convert)
+      convert "$file" -quality 92 "$file" >/dev/null 2>&1 || true
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
 # name|search-query  (left is the exact file name you want, right is what to search)
 items=(
   "Truffle-Mushroom-Risotto.jpg|truffle mushroom risotto"
@@ -53,7 +82,7 @@ PY
       -A "Mozilla/5.0" \
       -o "$out" "$url"; then
     # Re-encode as JPEG just in case (some images may not be jpg)
-    sips -s format jpeg "$out" --out "$out" >/dev/null 2>&1 || true
+    reencode_jpeg "$out"
     echo "✔ Saved: $out"
   else
     echo "⚠ Download failed, using placeholder: $filename"

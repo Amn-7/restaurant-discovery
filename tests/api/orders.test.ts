@@ -21,6 +21,7 @@ describe('Orders API', () => {
     const payload = {
       tableNumber: '42',
       source: 'table',
+      notificationPhone: '+1234567890',
       items: [
         { menuItem: item!._id.toString(), quantity: 2 }
       ]
@@ -43,6 +44,7 @@ describe('Orders API', () => {
     const stored = await Order.findById(body._id).lean();
     expect(stored).toBeTruthy();
     expect(stored?.source).toBe('table');
+    expect(stored?.notificationPhone).toBe('+1234567890');
   });
 
   it('returns recent orders', async () => {

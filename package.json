@@ -20,10 +20,12 @@
     "jq": "^1.7.2",
     "mongoose": "^8.19.2",
     "next": "16.0.1",
+    "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "swr": "^2.3.6",
+    "twilio": "^5.10.4",
     "zod": "^3.22.4"
   },
   "devDependencies": {
@@ -41,6 +43,7 @@
     "mongodb-memory-server": "^10.3.0",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "vercel": "^48.8.0",
     "vitest": "^4.0.5"
   }
 }

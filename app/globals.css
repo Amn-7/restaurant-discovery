@@ -148,6 +148,14 @@ button:disabled {
   background: transparent;
   border: 1px solid var(--border-strong);
 }
+.btn--danger {
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #dc2626;
+}
+.btn--danger:hover {
+  border-color: rgba(239, 68, 68, 0.65);
+  color: #b91c1c;
+}
 
 .app-shell {
   width: min(1200px, 100%);
@@ -699,9 +707,19 @@ button:disabled {
 }
 
 .order-summary__actions {
-  display: flex;
+  display: grid;
   gap: 0.75rem;
-  flex-wrap: wrap;
+}
+.order-summary__input {
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.95rem;
+}
+.order-summary__input:focus {
+  outline: 2px solid rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.6);
 }
 
 .hero {

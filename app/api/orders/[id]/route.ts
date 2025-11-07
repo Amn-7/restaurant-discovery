@@ -14,6 +14,7 @@ import { updateOrderStatusSchema } from '@/lib/validators';
 import { clearCache } from '@/lib/cache';
 import { getRequestIp } from '@/lib/request';
 import { logError, logInfo, logWarn } from '@/lib/logger';
+import { sendOrderStatusSms } from '@/lib/sms';
 
 type OrderStatus = NonNullable<OrderDoc['status']>;
 
@@ -32,6 +33,7 @@ type LeanOrder = {
   servedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  notificationPhone?: string | null;
 };
 
 type NormalizedOrderItem = Omit<LeanOrderItem, 'menuItem'> & { menuItem: string | null };
@@ -91,6 +93,12 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       update.servedAt = new Date();
     }
 
+    const existing = await Order.findById(id).lean<LeanOrder>();
+    if (!existing) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    const previousStatus = existing.status;
     const doc = await Order.findByIdAndUpdate(id, update, { new: true }).lean<LeanOrder>();
     if (!doc) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -108,6 +116,18 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       orderId: normalized._id,
       status: normalized.status
     });
+
+    if (existing.notificationPhone && previousStatus !== normalized.status) {
+      if (normalized.status === 'preparing') {
+        sendOrderStatusSms(existing.notificationPhone, `Order for table ${normalized.tableNumber} is now preparing!`).catch(
+          (smsErr) => logError('orders.sms_failed', { error: smsErr instanceof Error ? smsErr.message : 'unknown' })
+        );
+      } else if (normalized.status === 'served') {
+        sendOrderStatusSms(existing.notificationPhone, `Order for table ${normalized.tableNumber} is ready. Enjoy!`).catch(
+          (smsErr) => logError('orders.sms_failed', { error: smsErr instanceof Error ? smsErr.message : 'unknown' })
+        );
+      }
+    }
 
     return NextResponse.json(normalized, { status: 200 });
   } catch (err) {
@@ -140,7 +160,6 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Failed to fetch order' }, { status: 500 });
   }
 }
-
 export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     await dbConnect();
@@ -171,6 +190,12 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
     }
 
+    const existing = await Order.findById(id).lean<LeanOrder>();
+    if (!existing) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    const previousStatus = existing.status;
     const updated = await Order.findByIdAndUpdate(id, update, { new: true }).lean<LeanOrder>();
     if (!updated) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
@@ -188,6 +213,18 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       orderId: normalized._id,
       status: normalized.status
     });
+
+    if (existing.notificationPhone && previousStatus !== normalized.status) {
+      if (normalized.status === 'preparing') {
+        sendOrderStatusSms(existing.notificationPhone, `Order for table ${normalized.tableNumber} is now preparing!`).catch(
+          (smsErr) => logError('orders.sms_failed', { error: smsErr instanceof Error ? smsErr.message : 'unknown' })
+        );
+      } else if (normalized.status === 'served') {
+        sendOrderStatusSms(existing.notificationPhone, `Order for table ${normalized.tableNumber} is ready. Enjoy!`).catch(
+          (smsErr) => logError('orders.sms_failed', { error: smsErr instanceof Error ? smsErr.message : 'unknown' })
+        );
+      }
+    }
 
     return NextResponse.json(normalized, { status: 200 });
   } catch (err) {

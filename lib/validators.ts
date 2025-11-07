@@ -15,6 +15,11 @@ const orderItemSchema = z
 export const createOrderSchema = z.object({
   tableNumber: z.union([z.string().trim().min(1), z.number()]),
   status: z.enum(['ordered', 'preparing', 'served']).optional(),
+  notificationPhone: z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9]{7,15}$/, 'Phone must be 7-15 digits')
+    .optional(),
   source: z.enum(['staff', 'table', 'kiosk', 'other']).optional(),
   items: z.array(orderItemSchema).min(1)
 });
@@ -30,7 +35,9 @@ const baseMenuSchema = z.object({
   imageUrl: z.string().trim().url().optional(),
   category: z.string().trim().optional(),
   tags: z.array(z.string().trim()).optional().default([]),
-  isAvailable: z.boolean().optional().default(true)
+  isAvailable: z.boolean().optional().default(true),
+  stock: z.union([z.coerce.number().int().min(0), z.null()]).optional(),
+  lowStockThreshold: z.union([z.coerce.number().int().min(0), z.null()]).optional()
 });
 
 export const createMenuItemSchema = baseMenuSchema;

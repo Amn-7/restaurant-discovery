@@ -144,6 +144,23 @@ const previousItems = popular?.previous?.items ?? EMPTY_POPULAR_ITEMS; // previo
   const popularWindowLabel = popularSince ? `since ${popularSince}` : `last ${hours}h`;
   const ratingsWindowLabel = ratingsSince ? `since ${ratingsSince}` : `last ${hours}h`;
 
+  const satisfaction = useMemo(() => {
+    if (!ratedItems.length) return null;
+    const totals = ratedItems.reduce(
+      (acc, item) => {
+        acc.count += item.count;
+        acc.weighted += item.avg * item.count;
+        return acc;
+      },
+      { count: 0, weighted: 0 }
+    );
+    if (totals.count === 0) return null;
+    return {
+      avg: totals.weighted / totals.count,
+      count: totals.count
+    };
+  }, [ratedItems]);
+
   const categoryOptions = useMemo(() => {
     const set = new Set<string>();
     (menuItems ?? []).forEach((item) => item.category && set.add(item.category));
@@ -226,6 +243,17 @@ const previousItems = popular?.previous?.items ?? EMPTY_POPULAR_ITEMS; // previo
               {favourite?.avg
                 ? `${Number(favourite.avg).toFixed(1)} ★ • ${favourite.count} review${favourite.count === 1 ? '' : 's'} ${ratingsWindowLabel}`
                 : 'Collect ratings to showcase favourites'}
+            </span>
+          </div>
+          <div className="hero__card">
+            <span className="hero__card-label">Guest satisfaction</span>
+            <span className="hero__card-value">
+              {satisfaction ? `${satisfaction.avg.toFixed(1)} ★` : 'Awaiting feedback'}
+            </span>
+            <span className="hero__card-hint">
+              {satisfaction
+                ? `${satisfaction.count} review${satisfaction.count === 1 ? '' : 's'} ${ratingsWindowLabel}`
+                : 'Encourage diners to rate their dishes to unlock this metric'}
             </span>
           </div>
         </div>

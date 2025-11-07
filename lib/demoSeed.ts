@@ -12,6 +12,8 @@ type SeedMenuItem = {
   category: string;
   tags: string[];
   isAvailable: boolean;
+  stock?: number;
+  lowStockThreshold?: number;
 };
 
 type SeedOrder = {
@@ -33,181 +35,221 @@ const MENU_ITEMS: SeedMenuItem[] = [
     name: 'Truffle Mushroom Risotto',
     description: 'Porcini cream, shaved black truffle, aged parmesan.',
     price: 18,
-    imageUrl: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Truffle-Mushroom-Risotto.jpg',
     category: 'Mains',
     tags: ['chef special', 'comfort'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 24,
+    lowStockThreshold: 5
   },
   {
     name: 'Margherita Pizza',
     description: 'San Marzano tomatoes, buffalo mozzarella, hand-torn basil.',
     price: 12.5,
-    imageUrl: 'https://images.unsplash.com/photo-1548365328-8b849f840a1f?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Margherita-Pizza.jpg',
     category: 'Mains',
     tags: ['wood-fired', 'classic', 'veg'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 30,
+    lowStockThreshold: 6
   },
   {
     name: 'Spicy Pad Thai',
     description: 'Rice noodles, tamarind, palm sugar, roasted peanuts, Thai chili.',
     price: 14.5,
-    imageUrl: 'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Spicy-Pad-Thai.jpg',
     category: 'Mains',
     tags: ['spicy', 'street food'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 18,
+    lowStockThreshold: 4
   },
   {
     name: 'Slow-Braised Short Ribs',
     description: 'Red wine reduction, smoked garlic mash, crispy shallots.',
     price: 24,
-    imageUrl: 'https://images.unsplash.com/photo-1481931098730-318b6f776db0?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Slow-Braised-Short-Ribs.jpg',
     category: 'Mains',
     tags: ['hearty', 'gluten-free'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 16,
+    lowStockThreshold: 3
   },
   {
     name: 'Coconut Curry Ramen',
     description: 'Rich coconut broth, soft egg, charred bok choy, chili oil.',
     price: 15.5,
-    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Coconut-Curry-Ramen.jpg',
     category: 'Mains',
     tags: ['comfort', 'spicy'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 20,
+    lowStockThreshold: 4
   },
   {
     name: 'Citrus Herb Salmon',
     description: 'Pan-seared salmon, grilled fennel, citrus beurre blanc.',
     price: 22,
-    imageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Citrus-Herb-Salmon.jpg',
     category: 'Mains',
     tags: ['fresh', 'gluten-free'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 14,
+    lowStockThreshold: 3
   },
   {
     name: 'Burrata Caprese Salad',
     description: 'Heirloom tomatoes, basil oil, aged balsamic, warm focaccia.',
     price: 11,
-    imageUrl: 'https://images.unsplash.com/photo-1560807707-8cc77767d783?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Burrata-Caprese-Salad.jpg',
     category: 'Starters',
     tags: ['sharing', 'veg'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 25,
+    lowStockThreshold: 6
   },
   {
     name: 'Fire-Grilled Prawns',
     description: 'Harissa butter, charred lemon, micro herbs.',
     price: 16,
-    imageUrl: 'https://images.unsplash.com/photo-1476124369491-e7addf5db371?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Fire-Grilled-Prawns.jpg',
     category: 'Starters',
     tags: ['seafood', 'charred'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 12,
+    lowStockThreshold: 3
   },
   {
     name: 'Hand-cut Parmesan Fries',
     description: 'Twice-cooked potato, truffle salt, pecorino, lemon aioli.',
     price: 7.5,
-    imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Hand-cut-Parmesan-Fries.jpg',
     category: 'Sides',
     tags: ['snack', 'shareable'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 40,
+    lowStockThreshold: 8
   },
   {
     name: 'Charred Broccolini',
     description: 'Sesame glaze, toasted almonds, crispy garlic.',
     price: 8.5,
-    imageUrl: 'https://images.unsplash.com/photo-1589308078054-832d8de93450?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Charred-Broccolini.jpg',
     category: 'Sides',
     tags: ['greens', 'veg'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 22,
+    lowStockThreshold: 5
   },
   {
     name: 'Chili Lime Street Corn',
     description: 'Cotija, smoked paprika, cilantro crema, lime zest.',
     price: 7,
-    imageUrl: 'https://images.unsplash.com/photo-1478145046317-39f10e56b5e9?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Chili-Lime-Street-Corn.jpg',
     category: 'Sides',
     tags: ['spicy', 'street food'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 18,
+    lowStockThreshold: 4
   },
   {
     name: 'Berry Cheesecake',
     description: 'Vanilla bean cheesecake, macerated berries, almond crumble.',
     price: 8,
-    imageUrl: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Berry-Cheesecake.jpg',
     category: 'Desserts',
     tags: ['sweet', 'crowd favourite'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 28,
+    lowStockThreshold: 6
   },
   {
     name: 'Dark Chocolate Mousse',
     description: '70% cacao, espresso dust, sea salt caramel.',
     price: 8.5,
-    imageUrl: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Dark-Chocolate-Mousse.jpg',
     category: 'Desserts',
     tags: ['rich', 'gluten-free'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 18,
+    lowStockThreshold: 4
   },
   {
     name: 'Crème Brûlée',
     description: 'Tahitian vanilla custard, crackled sugar top, fresh berries.',
     price: 7.5,
-    imageUrl: 'https://images.unsplash.com/photo-1551218808-94e220e084d2?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Creme-Brulee.jpg',
     category: 'Desserts',
     tags: ['classic'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 20,
+    lowStockThreshold: 4
   },
   {
     name: 'Mango Lassi',
     description: 'Silky mango yogurt, cardamom, saffron threads.',
     price: 5,
-    imageUrl: 'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Mango-Lassi.jpg',
     category: 'Drinks',
     tags: ['cooling', 'veg'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 35,
+    lowStockThreshold: 8
   },
   {
     name: 'Sparkling Hibiscus Tea',
     description: 'Cold-brew hibiscus, soda, citrus, agave.',
     price: 4.5,
-    imageUrl: 'https://images.unsplash.com/photo-1510626176961-4b57d4fbad03?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Sparkling-Hibiscus-Tea.jpg',
     category: 'Drinks',
     tags: ['refreshing'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 30,
+    lowStockThreshold: 6
   },
   {
     name: 'Cold Brew Tonic',
     description: 'House cold brew, tonic water, orange bitters.',
     price: 5.5,
-    imageUrl: 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Cold-Brew-Tonic.jpg',
     category: 'Drinks',
     tags: ['caffeinated'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 32,
+    lowStockThreshold: 6
   },
   {
     name: 'Sunrise Smoothie Bowl',
     description: 'Pitaya, coconut yogurt, granola crunch, tropical fruit.',
     price: 10.5,
-    imageUrl: 'https://images.unsplash.com/photo-1528712306091-ed0763094c98?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Sunrise-Smoothie-Bowl.jpg',
     category: 'Brunch',
     tags: ['veg', 'gluten-free'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 18,
+    lowStockThreshold: 4
   },
   {
     name: 'Lobster Bisque',
     description: 'Butter-poached lobster, sherry cream, chive oil.',
     price: 19,
-    imageUrl: 'https://images.unsplash.com/photo-1506086679525-9f1d0efc83f9?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Lobster-Bisque.jpg',
     category: 'Starters',
     tags: ['luxury', 'seafood'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 10,
+    lowStockThreshold: 2
   },
   {
     name: 'Smoky BBQ Jackfruit Burger',
     description: 'Charred brioche, pickled onions, tangy slaw, plant-based patty.',
     price: 13.5,
-    imageUrl: 'https://images.unsplash.com/photo-1553979459-d2229ba7433b?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: '/menu/Smoky-BBQ-Jackfruit-Burger.jpg',
     category: 'Mains',
     tags: ['plant-based', 'smoky'],
-    isAvailable: true
+    isAvailable: true,
+    stock: 16,
+    lowStockThreshold: 3
   }
 ];
 

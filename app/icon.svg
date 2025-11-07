@@ -1,7 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="24" fill="#111"/>
-  <!-- plate -->
-  <circle cx="64" cy="64" r="28" fill="#fff"/>
-  <!-- fork -->
-  <rect x="92" y="24" width="6" height="80" rx="3" fill="#fff"/>
+  <rect width="128" height="128" rx="32" fill="#0f172a"/>
+  <text
+    x="50%"
+    y="50%"
+    dominant-baseline="central"
+    text-anchor="middle"
+    font-size="64"
+  >
+    🍽️
+  </text>
 </svg>

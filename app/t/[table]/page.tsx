@@ -2,6 +2,7 @@
 
 import useSWR, { useSWRConfig } from 'swr';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import {
   useCallback,
@@ -12,6 +13,7 @@ import {
 } from 'react';
 import { useToast } from '@/components/ToastProvider';
 import { formatINR } from '@/lib/currency';
+import Stars from '@/components/Stars';
 
 type OrderItem = { itemId?: string; menuItem?: string; name?: string; quantity?: number };
 type Order = {
@@ -31,6 +33,8 @@ type MenuItem = {
   imageUrl?: string;
   category?: string;
   isAvailable?: boolean;
+  stock?: number | null;
+  lowStockThreshold?: number | null;
 };
 
 type OrderEventPayload = {
@@ -43,6 +47,7 @@ type OrderEventPayload = {
 const fetcher = (u: string) => fetch(u).then(r => r.json());
 
 const EMPTY_ORDERS: Order[] = [];
+const QUICK_RATINGS_KEY = 'guest.quickRatings';
 
 export default function TablePage() {
   const { table } = useParams<{ table: string }>();
@@ -73,6 +78,8 @@ export default function TablePage() {
 
   const [draft, setDraft] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submittedQuickRatings, setSubmittedQuickRatings] = useState<Record<string, number>>({});
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   const showLoading = isLoading && !data;
   const showError = Boolean(error);
@@ -82,6 +89,14 @@ export default function TablePage() {
     () => (menu ?? []).filter((item) => item.isAvailable !== false),
     [menu]
   );
+
+  const menuStockMap = useMemo(() => {
+    const map = new Map<string, number | null | undefined>();
+    (menu ?? []).forEach((item) => {
+      map.set(item._id, item.stock ?? null);
+    });
+    return map;
+  }, [menu]);
 
   const selectedItems = useMemo(() => {
     if (!menu) return [];
@@ -107,7 +122,11 @@ export default function TablePage() {
   const adjustQuantity = useCallback((id: string, delta: number) => {
     setDraft((prev) => {
       const next = { ...prev };
-      const nextQty = Math.max(0, (next[id] ?? 0) + delta);
+      const current = next[id] ?? 0;
+      const stockLimit = menuStockMap.get(id);
+      const maxQty =
+        typeof stockLimit === 'number' && Number.isFinite(stockLimit) ? stockLimit : Number.MAX_SAFE_INTEGER;
+      const nextQty = Math.max(0, Math.min(current + delta, maxQty));
       if (nextQty === 0) {
         delete next[id];
       } else {
@@ -115,12 +134,21 @@ export default function TablePage() {
       }
       return next;
     });
-  }, []);
+  }, [menuStockMap]);
 
   const resetDraft = useCallback(() => setDraft({}), []);
 
   const submitOrder = useCallback(async () => {
     if (!selectedItems.length || submitting) return;
+
+    if (phoneNumber.trim() && !/^\+?[0-9]{7,15}$/.test(phoneNumber.trim())) {
+      push({
+        title: 'Invalid phone number',
+        description: 'Enter a valid number with 7-15 digits (add +country code if needed).',
+        variant: 'error'
+      });
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -131,6 +159,7 @@ export default function TablePage() {
           tableNumber: table,
           status: 'ordered',
           source: 'table',
+          notificationPhone: phoneNumber.trim() || undefined,
           items: selectedItems.map(({ item, quantity }) => ({
             menuItem: item._id,
             quantity
@@ -160,7 +189,7 @@ export default function TablePage() {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedItems, submitting, table, push, resetDraft, mutate, ordersKey]);
+  }, [selectedItems, submitting, phoneNumber, table, push, resetDraft, mutate, ordersKey]);
 
   useEffect(() => {
     const es = new EventSource('/api/stream/orders');
@@ -204,6 +233,99 @@ export default function TablePage() {
     };
   }, [mutate, ordersKey, push, table]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(QUICK_RATINGS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Record<string, number>;
+      setSubmittedQuickRatings(parsed);
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
+
+  const persistQuickRatings = useCallback((ratings: Record<string, number>) => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(QUICK_RATINGS_KEY, JSON.stringify(ratings));
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  const servedOrders = useMemo(() => (orders ?? []).filter((o) => o.status === 'served'), [orders]);
+
+  const menuById = useMemo(() => {
+    const map = new Map<string, MenuItem>();
+    (menu ?? []).forEach((item) => map.set(item._id, item));
+    return map;
+  }, [menu]);
+
+  const pendingRatings = useMemo(() => {
+    const items: Array<{
+      orderId: string;
+      menuItemId: string;
+      name: string;
+      imageUrl?: string;
+      key: string;
+    }> = [];
+    servedOrders.forEach((order) => {
+      order.items.forEach((item) => {
+        const menuItemId = item.menuItem ?? item.itemId;
+        if (!menuItemId) return;
+        const storageKey = `${order._id}:${menuItemId}`;
+        if (submittedQuickRatings[storageKey]) return;
+        const menuItem = menuById.get(menuItemId);
+        items.push({
+          orderId: order._id,
+          menuItemId,
+          name: item.name ?? menuItem?.name ?? 'Dish',
+          imageUrl: menuItem?.imageUrl,
+          key: storageKey
+        });
+      });
+    });
+    return items;
+  }, [servedOrders, submittedQuickRatings, menuById]);
+
+  const submitQuickRating = useCallback(
+    async (entry: { orderId: string; menuItemId: string; name: string; key: string }, rating: number) => {
+      try {
+        const payload = {
+          menuItemId: entry.menuItemId,
+          rating,
+          comment: `Quick rating for order ${entry.orderId}`
+        };
+        const res = await fetch('/api/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => 'Failed to submit rating');
+          throw new Error(text || 'Failed to submit rating');
+        }
+        push({
+          title: 'Thanks for the rating!',
+          description: `We noted your ${rating}-star review for ${entry.name}.`,
+          variant: 'success'
+        });
+        setSubmittedQuickRatings((prev) => {
+          const updated = { ...prev, [entry.key]: rating };
+          persistQuickRatings(updated);
+          return updated;
+        });
+        mutate(`/api/orders?hours=24&table=${encodeURIComponent(table)}`);
+        mutate('/api/analytics/ratings?hours=48&limit=1&sort=avg');
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Could not submit rating';
+        push({ title: 'Rating failed', description: message, variant: 'error' });
+      }
+    },
+    [mutate, persistQuickRatings, push, table]
+  );
+
   return (
     <div className="page">
       <section className="hero">
@@ -219,6 +341,47 @@ export default function TablePage() {
           </Link>
         </div>
       </section>
+
+      {pendingRatings.length > 0 && (
+        <section className="card card--stacked">
+          <div className="page__header">
+            <div>
+              <h2 className="section-heading">How was your meal?</h2>
+              <p className="section-subtitle">
+                Tap a star to rate dishes from your recent order. Ratings help us highlight favourites.
+              </p>
+            </div>
+            <span className="chip chip--accent">{pendingRatings.length} awaiting rating</span>
+          </div>
+          <div className="grid grid--cols-auto">
+            {pendingRatings.map((item) => (
+              <article key={item.key} className="card card--interactive card--tight">
+                {item.imageUrl ? (
+                  <div className="card__media">
+                    <Image
+                      src={item.imageUrl}
+                      alt={item.name}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 320px"
+                      className="card__media-image"
+                    />
+                  </div>
+                ) : null}
+                <div className="card__body">
+                  <div className="card__title">{item.name}</div>
+                  <p className="muted">Order #{item.orderId.slice(-6)}</p>
+                  <Stars
+                    value={0}
+                    onChange={(value) => submitQuickRating(item, value)}
+                    ariaLabel="rate dish"
+                    size={24}
+                  />
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="card card--stacked">
         <div className="page__header">
@@ -241,6 +404,15 @@ export default function TablePage() {
             <div className="menu-grid">
               {availableMenu.map((item) => {
                 const qty = draft[item._id] ?? 0;
+                const stockLeft = item.stock ?? null;
+                const hasFiniteStock = typeof stockLeft === 'number' && Number.isFinite(stockLeft);
+                const lowStock =
+                  hasFiniteStock &&
+                  stockLeft > 0 &&
+                  item.lowStockThreshold !== undefined &&
+                  item.lowStockThreshold !== null &&
+                  stockLeft <= item.lowStockThreshold;
+                const atLimit = hasFiniteStock && qty >= stockLeft;
                 return (
                   <article key={item._id} className="menu-card">
                     <div className="menu-card__body">
@@ -249,7 +421,14 @@ export default function TablePage() {
                         <span>{formatINR(item.price)}</span>
                       </div>
                       {item.description ? <p className="menu-card__description">{item.description}</p> : null}
-                      {item.category ? <span className="tag">{item.category}</span> : null}
+                      <div className="pill-group">
+                        {item.category ? <span className="tag">{item.category}</span> : null}
+                        {lowStock ? (
+                          <span className="tag tag--accent">Only {stockLeft} left</span>
+                        ) : hasFiniteStock ? (
+                          <span className="tag">In stock: {stockLeft}</span>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="menu-card__footer">
                       <button
@@ -265,10 +444,12 @@ export default function TablePage() {
                         type="button"
                         className="counter__btn counter__btn--accent"
                         onClick={() => adjustQuantity(item._id, 1)}
+                        disabled={atLimit}
                       >
                         +
                       </button>
                     </div>
+                    {atLimit && <p className="muted" style={{ marginTop: '0.5rem' }}>That&apos;s all we have left!</p>}
                   </article>
                 );
               })}
@@ -291,6 +472,12 @@ export default function TablePage() {
                 )}
               </div>
               <div className="order-summary__actions">
+                <input
+                  className="order-summary__input"
+                  placeholder="Phone for SMS updates (optional)"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                />
                 <button
                   type="button"
                   className="btn btn--primary"

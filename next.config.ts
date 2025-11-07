@@ -6,7 +6,7 @@ const csp = [
   "default-src 'self'",
   `script-src 'self'${isProd ? '' : " 'unsafe-inline' 'unsafe-eval'"}`,
   `style-src 'self'${isProd ? '' : " 'unsafe-inline'"}`,
-  "img-src 'self' data: blob: https://images.unsplash.com https://source.unsplash.com https://loremflickr.com https://images.pexels.com https://cdn.pixabay.com",
+  "img-src 'self' data: blob: https://images.unsplash.com https://source.unsplash.com https://loremflickr.com https://images.pexels.com https://cdn.pixabay.com https://res.cloudinary.com",
   "font-src 'self'",
   "connect-src 'self'",
   "worker-src 'self' blob:",
@@ -41,7 +41,8 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'loremflickr.com' },
       { protocol: 'https', hostname: 'images.pexels.com' },
       { protocol: 'https', hostname: 'cdn.pixabay.com' },
-      { protocol: 'https', hostname: 'encrypted-tbn0.gstatic.com' }
+      { protocol: 'https', hostname: 'encrypted-tbn0.gstatic.com' },
+      { protocol: 'https', hostname: 'res.cloudinary.com' }
     ]
   },
   async headers() {

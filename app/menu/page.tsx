@@ -15,6 +15,8 @@ type MenuItem = {
   isAvailable?: boolean;
   category?: string;
   tags?: string[];
+  stock?: number | null;
+  lowStockThreshold?: number | null;
 };
 
 const fetcher = (u: string) => fetch(u).then(r => r.json());
@@ -100,6 +102,14 @@ export default function MenuPage() {
               const availabilityClass =
                 item.isAvailable === false ? 'status status--danger' : 'status status--success';
               const availabilityText = item.isAvailable === false ? 'Sold out' : 'Available';
+              const lowStock =
+                item.isAvailable !== false &&
+                item.stock !== undefined &&
+                item.stock !== null &&
+                item.stock > 0 &&
+                item.lowStockThreshold !== undefined &&
+                item.lowStockThreshold !== null &&
+                item.stock <= item.lowStockThreshold;
 
               return (
                 <article key={item._id} className="card card--interactive card--tight">
@@ -114,18 +124,21 @@ export default function MenuPage() {
                       />
                     </div>
                   ) : null}
-                  <div className="card__body">
-                    <div className="card__title">{item.name}</div>
-                    <div className="card__meta">
-                      {item.category ? `${item.category} • ` : ''}
-                      {formatINR(item.price)}
-                    </div>
-                    {item.description ? <p className="muted">{item.description}</p> : null}
-                    <div className="pill-group">
-                      <span className={availabilityClass}>{availabilityText}</span>
-                      {(item.tags ?? []).slice(0, 3).map((tag) => (
-                        <span key={tag} className="tag">
-                          {tag}
+                    <div className="card__body">
+                      <div className="card__title">{item.name}</div>
+                      <div className="card__meta">
+                        {item.category ? `${item.category} • ` : ''}
+                        {formatINR(item.price)}
+                      </div>
+                      {item.description ? <p className="muted">{item.description}</p> : null}
+                      {lowStock ? (
+                        <span className="tag tag--accent">Only {item.stock} left</span>
+                      ) : null}
+                      <div className="pill-group">
+                        <span className={availabilityClass}>{availabilityText}</span>
+                        {(item.tags ?? []).slice(0, 3).map((tag) => (
+                          <span key={tag} className="tag">
+                            {tag}
                         </span>
                       ))}
                     </div>

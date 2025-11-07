@@ -18,6 +18,7 @@ const primaryLinks = [
 
 const adminLinks = [
   { href: '/admin', label: 'Admin' },
+  { href: '/admin/orders', label: 'Order History' },
   { href: '/admin/qr', label: 'QR Codes' }
 ];
 

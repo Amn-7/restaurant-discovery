@@ -13,7 +13,9 @@ const MenuItemSchema = new Schema(
     imageUrl: { type: String, default: '' },
     category: { type: String, default: '' }, // e.g., 'Starters', 'Mains', 'Desserts'
     tags: { type: [String], default: [] },   // e.g., ['veg', 'spicy']
-    isAvailable: { type: Boolean, default: true }
+    isAvailable: { type: Boolean, default: true },
+    stock: { type: Number, min: 0, default: null },
+    lowStockThreshold: { type: Number, min: 0, default: null }
   },
   { timestamps: true }
 );

@@ -5,6 +5,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useToast } from '@/components/ToastProvider';
+import { formatINR } from '@/lib/currency';
 
 type MenuItem = {
   _id: string;
@@ -15,6 +16,8 @@ type MenuItem = {
   imageUrl?: string;
   tags?: string[];
   isAvailable?: boolean;
+  stock?: number | null;
+  lowStockThreshold?: number | null;
 };
 
 type OrderItem = { itemId?: string; menuItem?: string; name?: string; quantity?: number };
@@ -38,7 +41,15 @@ export default function AdminPage() {
   });
 
   // Create dish form state
-  const [draft, setDraft] = useState({ name: '', price: '', category: '', imageUrl: '', description: '' });
+  const [draft, setDraft] = useState({
+    name: '',
+    price: '',
+    category: '',
+    imageUrl: '',
+    description: '',
+    stock: '',
+    lowStockThreshold: ''
+  });
   const [creating, setCreating] = useState(false);
 
   // Upload state
@@ -83,6 +94,7 @@ export default function AdminPage() {
 
   const [menuLoadingState, setMenuLoadingState] = useState<Record<string, boolean>>({});
   const [orderLoadingState, setOrderLoadingState] = useState<Record<string, boolean>>({});
+  const [menuDeletingState, setMenuDeletingState] = useState<Record<string, boolean>>({});
 
   async function logout() {
     await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' });
@@ -92,8 +104,30 @@ export default function AdminPage() {
 
   async function createItem() {
     const price = Number(draft.price);
-    if (!draft.name.trim() || !Number.isFinite(price)) {
-      push({ title: 'Name and price are required', variant: 'error' });
+    const stockValue = draft.stock.trim() === '' ? undefined : Number(draft.stock);
+    const thresholdValue =
+      draft.lowStockThreshold.trim() === '' ? undefined : Number(draft.lowStockThreshold);
+
+    if (!draft.name.trim() || !Number.isFinite(price) || price <= 0) {
+      push({ title: 'Name and a positive price are required', variant: 'error' });
+      return;
+    }
+    if (stockValue !== undefined && (!Number.isFinite(stockValue) || stockValue < 0)) {
+      push({ title: 'Stock must be zero or greater', variant: 'error' });
+      return;
+    }
+    if (thresholdValue !== undefined && (!Number.isFinite(thresholdValue) || thresholdValue < 0)) {
+      push({ title: 'Threshold must be zero or greater', variant: 'error' });
+      return;
+    }
+    if (
+      stockValue !== undefined &&
+      stockValue !== null &&
+      thresholdValue !== undefined &&
+      thresholdValue !== null &&
+      thresholdValue > stockValue
+    ) {
+      push({ title: 'Threshold cannot exceed stock', variant: 'error' });
       return;
     }
     setCreating(true);
@@ -107,14 +141,24 @@ export default function AdminPage() {
         category: draft.category || undefined,
         imageUrl: (draft.imageUrl || uploadedUrl) || undefined,
         description: draft.description || undefined,
-        isAvailable: true
+        isAvailable: true,
+        stock: stockValue ?? undefined,
+        lowStockThreshold: thresholdValue ?? undefined
       })
     });
     if (!res.ok) {
       const t = await res.text();
       push({ title: 'Failed to create dish', description: t, variant: 'error' });
     } else {
-      setDraft({ name: '', price: '', category: '', imageUrl: '', description: '' });
+      setDraft({
+        name: '',
+        price: '',
+        category: '',
+        imageUrl: '',
+        description: '',
+        stock: '',
+        lowStockThreshold: ''
+      });
       setFile(null); setPreview(null); setUploadedUrl('');
       push({ title: 'Dish created', variant: 'success' });
       mutate('/api/menu');
@@ -138,6 +182,125 @@ export default function AdminPage() {
       mutate('/api/menu');
     }
     setMenuLoadingState((prev) => {
+      const next = { ...prev };
+      delete next[item._id];
+      return next;
+    });
+  }
+
+  async function editInventory(item: MenuItem) {
+    if (typeof window === 'undefined') return;
+
+    const stockEntry = window.prompt(
+      `Set available stock for "${item.name}" (leave blank for unlimited)`,
+      item.stock !== null && item.stock !== undefined ? String(item.stock) : ''
+    );
+    if (stockEntry === null) return;
+
+    const payload: Record<string, unknown> = {};
+    const trimmedStock = stockEntry.trim();
+    if (trimmedStock === '') {
+      payload.stock = null;
+    } else {
+      const stockValue = Number(trimmedStock);
+      if (!Number.isFinite(stockValue) || stockValue < 0) {
+        push({ title: 'Invalid stock value', variant: 'error' });
+        return;
+      }
+      payload.stock = stockValue;
+    }
+
+    const thresholdEntry = window.prompt(
+      `Set low-stock alert threshold for "${item.name}" (optional, leave blank to clear)`,
+      item.lowStockThreshold !== null && item.lowStockThreshold !== undefined ? String(item.lowStockThreshold) : ''
+    );
+    if (thresholdEntry === null) return;
+    const trimmedThreshold = thresholdEntry.trim();
+    if (trimmedThreshold === '') {
+      payload.lowStockThreshold = null;
+    } else {
+      const thresholdValue = Number(trimmedThreshold);
+      if (!Number.isFinite(thresholdValue) || thresholdValue < 0) {
+        push({ title: 'Invalid threshold value', variant: 'error' });
+        return;
+      }
+
+      const effectiveStock =
+        payload.stock === undefined
+          ? item.stock ?? null
+          : (payload.stock as number | null);
+
+      if (
+        effectiveStock !== null &&
+        typeof effectiveStock === 'number' &&
+        thresholdValue > effectiveStock
+      ) {
+        push({ title: 'Threshold cannot exceed stock', variant: 'error' });
+        return;
+      }
+
+      payload.lowStockThreshold = thresholdValue;
+    }
+
+    const effectiveStockAfterUpdate =
+      payload.stock === undefined ? item.stock ?? null : payload.stock;
+    if (
+      payload.isAvailable === undefined &&
+      item.isAvailable === false &&
+      (
+        (typeof effectiveStockAfterUpdate === 'number' && effectiveStockAfterUpdate > 0) ||
+        effectiveStockAfterUpdate === null
+      )
+    ) {
+      payload.isAvailable = true;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      push({ title: 'No inventory changes applied', variant: 'default' });
+      return;
+    }
+
+    setMenuLoadingState((prev) => ({ ...prev, [item._id]: true }));
+    const res = await fetch(`/api/menu/${item._id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      push({ title: 'Inventory update failed', description: t, variant: 'error' });
+    } else {
+      push({ title: 'Inventory updated', variant: 'success' });
+      mutate('/api/menu');
+    }
+    setMenuLoadingState((prev) => {
+      const next = { ...prev };
+      delete next[item._id];
+      return next;
+    });
+  }
+
+  async function deleteItem(item: MenuItem) {
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm(`Delete "${item.name}" from the menu? This cannot be undone.`);
+      if (!confirmed) return;
+    }
+
+    setMenuDeletingState((prev) => ({ ...prev, [item._id]: true }));
+    const res = await fetch(`/api/menu/${item._id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      push({ title: 'Delete failed', description: t, variant: 'error' });
+    } else {
+      push({ title: 'Dish removed', variant: 'success' });
+      mutate('/api/menu');
+    }
+    setMenuDeletingState((prev) => {
       const next = { ...prev };
       delete next[item._id];
       return next;
@@ -189,12 +352,34 @@ export default function AdminPage() {
         <div className="grid grid--cols-auto">
           <input placeholder="Dish name" value={draft.name}
                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}/>
-          <input placeholder="Price" value={draft.price}
-                 onChange={(e) => setDraft({ ...draft, price: e.target.value })}/>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Price"
+            value={draft.price}
+            onChange={(e) => setDraft({ ...draft, price: e.target.value })}
+          />
           <input placeholder="Category (e.g. Mains)" value={draft.category}
                  onChange={(e) => setDraft({ ...draft, category: e.target.value })}/>
           <input placeholder="Image URL (optional)" value={draft.imageUrl}
                  onChange={(e) => setDraft({ ...draft, imageUrl: e.target.value })}/>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            placeholder="Available stock (optional)"
+            value={draft.stock}
+            onChange={(e) => setDraft({ ...draft, stock: e.target.value })}
+          />
+          <input
+            type="number"
+            min="0"
+            step="1"
+            placeholder="Low-stock threshold (optional)"
+            value={draft.lowStockThreshold}
+            onChange={(e) => setDraft({ ...draft, lowStockThreshold: e.target.value })}
+          />
         </div>
 
         {/* Image upload block */}
@@ -244,6 +429,14 @@ export default function AdminPage() {
               const availabilityClass =
                 mi.isAvailable === false ? 'status status--danger' : 'status status--success';
               const availabilityText = mi.isAvailable === false ? 'Sold out' : 'Available';
+              const stockValue = mi.stock ?? null;
+              const hasFiniteStock = typeof stockValue === 'number' && Number.isFinite(stockValue);
+              const lowStock =
+                hasFiniteStock &&
+                stockValue > 0 &&
+                mi.lowStockThreshold !== undefined &&
+                mi.lowStockThreshold !== null &&
+                stockValue <= mi.lowStockThreshold;
 
               return (
                 <article key={mi._id} className="card card--interactive card--tight">
@@ -264,29 +457,59 @@ export default function AdminPage() {
                     />
                   ) : null}
 
-                  <div className="card__body">
-                    <div className="card__title">{mi.name}</div>
-                    <div className="card__meta">
-                      {mi.category ?? 'Uncategorised'} • ${Number(mi.price).toFixed(2)}
-                    </div>
-                    <div className="pill-group">
-                      <span className={availabilityClass}>{availabilityText}</span>
-                      {(mi.tags ?? []).slice(0, 3).map((tag) => (
-                        <span key={tag} className="tag">{tag}</span>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      onClick={() => toggleAvailability(mi)}
-                      disabled={Boolean(menuLoadingState[mi._id])}
-                    >
-                      {menuLoadingState[mi._id]
-                        ? 'Updating…'
-                        : mi.isAvailable === false
-                        ? 'Mark available'
-                        : 'Mark sold out'}
-                    </button>
+                    <div className="card__body">
+                      <div className="card__title">{mi.name}</div>
+                      <div className="card__meta">
+                        {mi.category ?? 'Uncategorised'} • {formatINR(mi.price)}
+                      </div>
+                      <div className="pill-group">
+                        <span className={availabilityClass}>{availabilityText}</span>
+                        {(mi.tags ?? []).slice(0, 3).map((tag) => (
+                          <span key={tag} className="tag">{tag}</span>
+                        ))}
+                      </div>
+                      <div className="pill-group">
+                        {hasFiniteStock ? (
+                          <span className={`tag ${lowStock ? 'tag--accent' : ''}`}>
+                            Stock: {stockValue}
+                            {mi.lowStockThreshold !== undefined && mi.lowStockThreshold !== null
+                              ? ` (alert at ${mi.lowStockThreshold})`
+                              : ''}
+                          </span>
+                        ) : (
+                          <span className="tag">Stock: unlimited</span>
+                        )}
+                      </div>
+                      <div className="pill-group">
+                        <button
+                          type="button"
+                          className="btn btn--ghost"
+                          onClick={() => toggleAvailability(mi)}
+                          disabled={Boolean(menuLoadingState[mi._id])}
+                        >
+                          {menuLoadingState[mi._id]
+                            ? 'Updating…'
+                            : mi.isAvailable === false
+                            ? 'Mark available'
+                            : 'Mark sold out'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn--ghost"
+                          onClick={() => editInventory(mi)}
+                          disabled={Boolean(menuLoadingState[mi._id])}
+                        >
+                          Edit inventory
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--danger"
+                          onClick={() => deleteItem(mi)}
+                          disabled={Boolean(menuDeletingState[mi._id])}
+                        >
+                          {menuDeletingState[mi._id] ? 'Deleting…' : 'Delete'}
+                        </button>
+                      </div>
                   </div>
                 </article>
               );

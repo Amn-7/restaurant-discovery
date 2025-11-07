@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { tableNumber, status = 'ordered', source = 'staff', items: itemsInput } = parsed.data;
+    const { tableNumber, status = 'ordered', source = 'staff', notificationPhone, items: itemsInput } = parsed.data;
     const normalizedTableNumber = String(tableNumber).trim();
     if (!normalizedTableNumber) {
       return NextResponse.json({ error: 'Table number is required' }, { status: 400 });
@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
       imageUrl?: string;
       quantity: number;
     }> = [];
+    const stockAdjustments = new Map<string, { id: mongoose.Types.ObjectId; quantity: number }>();
 
     for (const item of itemsInput) {
       const quantity = item.quantity ?? 1;
@@ -106,18 +107,91 @@ export async function POST(req: NextRequest) {
         imageUrl: mi.imageUrl,
         quantity
       });
+
+      if (mi.stock !== undefined && mi.stock !== null) {
+        const key = mi._id.toString();
+        const existing = stockAdjustments.get(key);
+        stockAdjustments.set(key, {
+          id: mi._id as mongoose.Types.ObjectId,
+          quantity: (existing?.quantity ?? 0) + quantity
+        });
+      }
     }
 
     const payload = {
       tableNumber: normalizedTableNumber,
       status: statusValue,
       source: sourceValue,
+      ...(notificationPhone ? { notificationPhone } : {}),
       items,
       createdAt: new Date(),
       ...(statusValue === 'served' ? { servedAt: new Date() } : {})
     };
 
     const doc = await Order.create(payload);
+
+    for (const adjustment of stockAdjustments.values()) {
+      try {
+        await MenuItem.findByIdAndUpdate(
+          adjustment.id,
+          [
+            {
+              $set: {
+                stock: {
+                  $let: {
+                    vars: { current: { $ifNull: ['$stock', 0] } },
+                    in: {
+                      $max: [
+                        { $subtract: ['$$current', adjustment.quantity] },
+                        0
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              $set: {
+                isAvailable: {
+                  $cond: [
+                    { $lte: ['$stock', 0] },
+                    false,
+                    '$isAvailable'
+                  ]
+                }
+              }
+            }
+          ],
+          { new: false }
+        );
+
+        const postUpdate = await MenuItem.findById(adjustment.id)
+          .select({ stock: 1, lowStockThreshold: 1, name: 1 })
+          .lean<{ stock?: number | null; lowStockThreshold?: number | null; name?: string }>();
+
+        if (
+          postUpdate &&
+          postUpdate.stock !== undefined &&
+          postUpdate.stock !== null &&
+          postUpdate.stock > 0 &&
+          postUpdate.lowStockThreshold !== undefined &&
+          postUpdate.lowStockThreshold !== null &&
+          postUpdate.stock <= postUpdate.lowStockThreshold
+        ) {
+          logWarn('menu.low_stock', {
+            menuItem: adjustment.id.toString(),
+            name: postUpdate.name,
+            stock: postUpdate.stock,
+            threshold: postUpdate.lowStockThreshold
+          });
+        }
+      } catch (err) {
+        logError('menu.stock_update_failed', {
+          error: err instanceof Error ? err.message : 'unknown',
+          menuItem: adjustment.id.toString()
+        });
+      }
+    }
     clearCache('analytics');
 
     // Fire SSE event but don't fail the request if it throws
@@ -162,6 +236,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const hours = Math.max(1, Number(searchParams.get('hours') ?? '24'));
+    const limit = Math.min(500, Math.max(1, Number(searchParams.get('limit') ?? '250')));
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
     const table = searchParams.get('table');
     const status = searchParams.get('status') as OrderStatus | null;
@@ -173,7 +248,7 @@ export async function GET(req: NextRequest) {
     }
     if (status) query.status = status;
 
-    const orders = await Order.find(query).sort({ createdAt: -1 }).lean();
+    const orders = await Order.find(query).sort({ createdAt: -1 }).limit(limit).lean();
     return NextResponse.json(orders, { status: 200 });
   } catch (err) {
     logError('orders.fetch_failed', {

@@ -20,6 +20,7 @@ const OrderSchema = new Schema(
   {
     tableNumber: { type: String, required: true, trim: true },
     items: { type: [OrderItemSchema], default: [] },
+    notificationPhone: { type: String, trim: true },
     source: {
       type: String,
       enum: ['staff', 'table', 'kiosk', 'other'],

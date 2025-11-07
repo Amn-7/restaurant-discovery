@@ -2,6 +2,8 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
+import { timingSafeEqual } from 'crypto';
 import { getSession } from '@/lib/session';
 import { loginLimiter } from '@/lib/ratelimit';
 import { getRequestIp } from '@/lib/request';
@@ -14,8 +16,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const adminHash = process.env.ADMIN_KEY_HASH;
   const adminKey = process.env.ADMIN_KEY;
-  if (!adminKey) {
+  if (!adminHash && !adminKey) {
     return NextResponse.json({ error: 'Admin login is not configured.' }, { status: 501 });
   }
 
@@ -27,15 +30,40 @@ export async function POST(req: NextRequest) {
 
   const { key = '', rememberMe = false } = await req.json().catch(() => ({}));
 
-  // 🔎 DEBUG: log minimal, non-sensitive info
-  console.log(
-    '[admin/login] keyLen=%d rememberMe=%s runtime=%s',
-    key?.length ?? 0,
-    rememberMe,
-    process.env.NEXT_RUNTIME || 'node'
-  );
+  if (process.env.NODE_ENV !== 'production') {
+    // 🔎 DEBUG: log minimal, non-sensitive info (disabled in production)
+    console.log(
+      '[admin/login] keyLen=%d rememberMe=%s runtime=%s',
+      key?.length ?? 0,
+      rememberMe,
+      process.env.NEXT_RUNTIME || 'node'
+    );
+  }
 
-  if (key !== adminKey) {
+  let valid = false;
+
+  if (adminHash) {
+    try {
+      valid = await bcrypt.compare(key, adminHash);
+    } catch (err) {
+      console.error('[admin/login] Failed to compare admin hash', err);
+      return NextResponse.json({ error: 'Admin login is misconfigured.' }, { status: 500 });
+    }
+  }
+
+  if (!valid && adminKey) {
+    const input = Buffer.from(String(key ?? ''), 'utf8');
+    const expected = Buffer.from(adminKey, 'utf8');
+    if (input.length === expected.length) {
+      try {
+        valid = timingSafeEqual(input, expected);
+      } catch {
+        valid = false;
+      }
+    }
+  }
+
+  if (!valid) {
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
   }
 

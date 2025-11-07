@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { NextRequest } from 'next/server';
+import bcrypt from 'bcryptjs';
 import { POST as loginPOST, GET as loginGET } from '@/app/api/admin/login/route';
 import { POST as logoutPOST } from '@/app/api/admin/logout/route';
 
@@ -12,7 +13,8 @@ beforeAll(() => {
   if (!process.env.IRON_SESSION_PASSWORD || process.env.IRON_SESSION_PASSWORD.length < 32) {
     process.env.IRON_SESSION_PASSWORD = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJ';
   }
-  process.env.ADMIN_KEY = ADMIN_KEY;
+  process.env.ADMIN_KEY_HASH = bcrypt.hashSync(ADMIN_KEY, 10);
+  delete process.env.ADMIN_KEY;
   // Note: NODE_ENV is read-only in some environments, but for tests we can set it
   (process.env as { NODE_ENV?: string }).NODE_ENV = 'test';
 });

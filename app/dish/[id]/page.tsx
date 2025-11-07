@@ -5,6 +5,7 @@ import useSWR, { mutate } from 'swr';
 import Stars from '@/components/Stars';
 import { useMemo, useState } from 'react';
 import Image from 'next/image';
+import { formatINR } from '@/lib/currency';
 
 type MenuItem = {
   _id: string;
@@ -32,17 +33,6 @@ const fetcher = async (u: string) => {
     throw new Error(text || `Request failed: ${r.status}`);
   }
   return r.json();
-};
-
-// currency formatter (₹ for India)
-const formatINR = (p: unknown) => {
-  const n = typeof p === 'number' ? p : Number(p);
-  if (!Number.isFinite(n)) return '—';
-  try {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(n);
-  } catch {
-    return `₹${n.toFixed(2)}`;
-  }
 };
 
 export default function DishPage() {
@@ -109,6 +99,11 @@ export default function DishPage() {
     );
   }
 
+  const priceLabel =
+    item.price === undefined || item.price === null
+      ? '—'
+      : formatINR(item.price as number | string);
+
   return (
     <div className="page">
       <section className="hero">
@@ -140,7 +135,7 @@ export default function DishPage() {
       <section className="card card--stacked">
         {item.category ? <span className="chip chip--accent">{item.category}</span> : null}
         {item.description ? <p>{item.description}</p> : null}
-        <div className="section-heading">{formatINR(item.price)}</div>
+        <div className="section-heading">{priceLabel}</div>
         <div className="pill-group">
           {(item.tags ?? []).map((t) => (
             <span key={t} className="tag">

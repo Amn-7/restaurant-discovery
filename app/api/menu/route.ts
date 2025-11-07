@@ -61,12 +61,46 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
-  const parsed = createMenuItemSchema.safeParse(await req.json());
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const parsed = createMenuItemSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const doc = await MenuItem.create(parsed.data);
+  const payload = { ...parsed.data };
+
+  if (payload.stock !== undefined) {
+    if (payload.stock === null) {
+      payload.stock = null;
+    } else {
+      payload.stock = Math.max(0, Math.trunc(payload.stock));
+      if (payload.stock === 0) {
+        payload.isAvailable = false;
+      }
+    }
+  }
+  if (payload.lowStockThreshold !== undefined) {
+    if (payload.lowStockThreshold === null) {
+      payload.lowStockThreshold = null;
+    } else {
+      payload.lowStockThreshold = Math.max(0, Math.trunc(payload.lowStockThreshold));
+      if (
+        payload.stock !== undefined &&
+        payload.stock !== null &&
+        payload.lowStockThreshold > payload.stock
+      ) {
+        payload.lowStockThreshold = payload.stock;
+      }
+    }
+  }
+
+  const doc = await MenuItem.create(payload);
   const createdObject = doc.toObject({ depopulate: true }) as LeanMenuItem;
   clearCache('analytics');
   return NextResponse.json(normalizeMenuItem(createdObject), { status: 201 });
