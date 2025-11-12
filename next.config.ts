@@ -6,7 +6,8 @@ const csp = [
   "default-src 'self'",
   // Allow inline scripts for Next.js hydration in production; keep 'unsafe-eval' only in dev.
   `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
-  `style-src 'self'${isProd ? '' : " 'unsafe-inline'"}`,
+  // Allow inline styles for CSS-in-JS/Tailwind runtime style tags
+  `style-src 'self' 'unsafe-inline'`,
   "img-src 'self' data: blob: https://images.unsplash.com https://source.unsplash.com https://loremflickr.com https://images.pexels.com https://cdn.pixabay.com https://res.cloudinary.com",
   "font-src 'self'",
   "connect-src 'self'",
