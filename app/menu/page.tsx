@@ -19,7 +19,10 @@ type MenuItem = {
   lowStockThreshold?: number | null;
 };
 
-const fetcher = (u: string) => fetch(u).then(r => r.json());
+const fetcher = (u: string) => fetch(u).then((r) => {
+  console.log("me chal gaya");
+  return r.json();
+});
 
 export default function MenuPage() {
   const { data, error, isLoading } = useSWR<MenuItem[]>('/api/menu', fetcher, { refreshInterval: 0 });
