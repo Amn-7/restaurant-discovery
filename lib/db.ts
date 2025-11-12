@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { logError } from './logger';
 
 // Narrow env var to a definite string
 const uri: string = process.env.MONGODB_URI ?? '';
@@ -19,10 +20,15 @@ export async function dbConnect() {
   if (cached!.conn) return cached!.conn;
 
   if (!cached!.promise) {
-    cached!.promise = mongoose.connect(uri, {
-      dbName: 'restaurant_order_discovery',
-      bufferCommands: false,
-    });
+    try {
+      cached!.promise = mongoose.connect(uri, {
+        dbName: 'restaurant_order_discovery',
+        bufferCommands: false,
+      });
+    } catch (error:any) {
+      logError('MongoDB connection error:', error);
+      throw error;
+    }
   }
 
   cached!.conn = await cached!.promise;
