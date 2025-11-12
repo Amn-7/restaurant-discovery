@@ -4,7 +4,8 @@ const isProd = process.env.NODE_ENV === 'production';
 
 const csp = [
   "default-src 'self'",
-  `script-src 'self'${isProd ? '' : " 'unsafe-inline' 'unsafe-eval'"}`,
+  // Allow inline scripts for Next.js hydration in production; keep 'unsafe-eval' only in dev.
+  `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
   `style-src 'self'${isProd ? '' : " 'unsafe-inline'"}`,
   "img-src 'self' data: blob: https://images.unsplash.com https://source.unsplash.com https://loremflickr.com https://images.pexels.com https://cdn.pixabay.com https://res.cloudinary.com",
   "font-src 'self'",
