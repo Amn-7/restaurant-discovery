@@ -20,15 +20,12 @@ export async function dbConnect() {
   if (cached!.conn) return cached!.conn;
 
   if (!cached!.promise) {
-    try {
-      cached!.promise = mongoose.connect(uri, {
-        dbName: 'restaurant_order_discovery',
-        bufferCommands: false,
-      });
-    } catch (error:any) {
-      logError('MongoDB connection error:', error);
-      throw error;
-    }
+
+    cached!.promise = mongoose.connect(uri, {
+      dbName: 'restaurant_order_discovery',
+      bufferCommands: false,
+    });
+
   }
 
   cached!.conn = await cached!.promise;
