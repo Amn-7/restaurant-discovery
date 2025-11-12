@@ -25,11 +25,17 @@ function normalizeMenuItem(doc: LeanMenuItem): NormalizedMenuItem {
 }
 
 export async function GET() {
-  await dbConnect();
-  await ensureDemoData();
-  const items = await MenuItem.find({}).sort({ createdAt: -1 }).lean<LeanMenuItem[]>();
-  const normalized = items.map(normalizeMenuItem);
-  return NextResponse.json(normalized, { status: 200 });
+  try {
+    await dbConnect();
+    await ensureDemoData();
+    const items = await MenuItem.find({}).sort({ createdAt: -1 }).lean<LeanMenuItem[]>();
+    const normalized = items.map(normalizeMenuItem);
+    return NextResponse.json(normalized, { status: 200 });
+  } catch (err) {
+    // Return JSON so client fetchers don’t fail parsing HTML error pages
+    const message = err instanceof Error ? err.message : 'unknown error';
+    return NextResponse.json({ error: 'Failed to load menu', message }, { status: 500 });
+  }
 }
 
 export async function OPTIONS() {
@@ -51,9 +57,10 @@ async function authorizeWithHeader(req: NextRequest): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
-  await dbConnect();
-  const denied = await assertAdmin(req);
-  if (denied && !(await authorizeWithHeader(req))) return denied;
+  try {
+    await dbConnect();
+    const denied = await assertAdmin(req);
+    if (denied && !(await authorizeWithHeader(req))) return denied;
 
   const ip = getRequestIp(req);
   const rate = await writeLimiter.limit(`menu:create:${ip}`);
@@ -100,8 +107,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const doc = await MenuItem.create(payload);
-  const createdObject = doc.toObject({ depopulate: true }) as LeanMenuItem;
-  clearCache('analytics');
-  return NextResponse.json(normalizeMenuItem(createdObject), { status: 201 });
+    const doc = await MenuItem.create(payload);
+    const createdObject = doc.toObject({ depopulate: true }) as LeanMenuItem;
+    clearCache('analytics');
+    return NextResponse.json(normalizeMenuItem(createdObject), { status: 201 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    return NextResponse.json({ error: 'Failed to create item', message }, { status: 500 });
+  }
 }

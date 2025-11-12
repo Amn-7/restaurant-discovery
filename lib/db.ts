@@ -1,10 +1,9 @@
 import mongoose from 'mongoose';
-import { logError } from './logger';
 
 // Narrow env var to a definite string
 const uri: string = process.env.MONGODB_URI ?? '';
 if (!uri) {
-  throw new Error('Please define MONGODB_URI in .env.local');
+  throw new Error('Please define MONGODB_URI in your environment');
 }
 
 declare global {
@@ -20,12 +19,13 @@ export async function dbConnect() {
   if (cached!.conn) return cached!.conn;
 
   if (!cached!.promise) {
-
     cached!.promise = mongoose.connect(uri, {
       dbName: 'restaurant_order_discovery',
       bufferCommands: false,
+      serverSelectionTimeoutMS: 8000,
+      maxPoolSize: 5,
+      minPoolSize: 0,
     });
-
   }
 
   cached!.conn = await cached!.promise;
