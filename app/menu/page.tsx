@@ -19,10 +19,26 @@ type MenuItem = {
   lowStockThreshold?: number | null;
 };
 
-const fetcher = (u: string) => fetch(u).then((r) => {
-  console.log("me chal gaya");
-  return r.json();
-});
+const fetcher = async (u: string) => {
+  const r = await fetch(u);
+  const ct = r.headers.get('content-type') ?? '';
+  if (!r.ok) {
+    if (ct.includes('application/json')) {
+      type ApiError = { message?: string; error?: string };
+      const body = (await r.json().catch(() => ({}))) as unknown as ApiError;
+      const msg = body && (body.message || body.error) ? (body.message || body.error) : `HTTP ${r.status}`;
+      throw new Error(String(msg));
+    } else {
+      const text = await r.text().catch(() => '');
+      if (r.status === 401 && text.includes('Authentication Required')) {
+        throw new Error('Deployment is protected by Vercel. Disable protection or use a bypass token.');
+      }
+      throw new Error(`HTTP ${r.status}`);
+    }
+  }
+  if (ct.includes('application/json')) return r.json();
+  throw new Error('Unexpected response type from API');
+};
 
 export default function MenuPage() {
   const { data, error, isLoading } = useSWR<MenuItem[]>('/api/menu', fetcher, { refreshInterval: 0 });
@@ -95,7 +111,9 @@ export default function MenuPage() {
         </label>
       </section>
 
-      {showError && <p className="muted">Failed to load menu. Please refresh.</p>}
+      {showError && (
+        <p className="muted">Failed to load menu: {error instanceof Error ? error.message : 'Unknown error'}</p>
+      )}
       {showLoading && <p className="muted">Loading menu…</p>}
 
       {!showError && !showLoading && (
