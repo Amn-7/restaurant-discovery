@@ -55,6 +55,39 @@ Then start the dev server:
 npm run dev
 ```
 
+### Backend API (separate service)
+
+If you want to run the REST API outside of Next.js (for example to host it on a different server):
+
+```
+cd backend
+npm install
+cp ../.env.local .env.local   # or create backend/.env with the required vars
+npm run dev
+```
+
+Required variables (same values you already use for the Next.js API):
+
+```
+MONGODB_URI=...
+IRON_SESSION_PASSWORD=...
+ADMIN_KEY_HASH=...
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
+CLOUDINARY_UPLOAD_FOLDER=restaurant/menu
+CLOUDINARY_UPLOAD_PRESET=...
+SKIP_DEMO_SEED=1
+# Optional
+TWILIO_ACCOUNT_SID=...
+TWILIO_AUTH_TOKEN=...
+TWILIO_FROM_NUMBER=+1234567890
+UPSTASH_REDIS_REST_URL=...
+UPSTASH_REDIS_REST_TOKEN=...
+```
+
+The backend exposes the same `/api/*` routes as the Next.js server, so you can point `API_PROXY_ORIGIN` (or your reverse proxy) at it when you are ready to fully separate the stacks.
+
 ### Production build
 
 Before deploying, run the production build locally to catch issues:
