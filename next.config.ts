@@ -47,6 +47,15 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'res.cloudinary.com' }
     ]
   },
+  async rewrites() {
+    const target = process.env.API_PROXY_ORIGIN;
+    if (!target) return [];
+    // Proxy API calls to a separate backend origin while keeping same-origin URLs in the browser
+    return [
+      { source: '/api/:path*', destination: `${target}/api/:path*` },
+      { source: '/sse/:path*', destination: `${target}/sse/:path*` },
+    ];
+  },
   async headers() {
     return [
       {

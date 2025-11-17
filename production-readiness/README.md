@@ -72,6 +72,24 @@ vercel --prod
 - Docker files have been removed as per user request
 - Use Vercel for simpler deployment
 
+### Option 4: Split Frontend + Backend (API proxy)
+
+Frontend (Next.js)
+- In `next.config.ts`, rewrites proxy `/api/*` to a separate backend when `API_PROXY_ORIGIN` is set.
+- Set `API_PROXY_ORIGIN=https://your-backend.example.com` in your frontend env (no trailing slash).
+- Deploy the frontend to Vercel/Azure Static Web App; no CORS needed because requests are first‑party through the proxy.
+
+Backend (server/ Express API)
+- New service under `server/` with Express + Mongoose; mirrors the Next.js API endpoints.
+- Env vars (same as before): `MONGODB_URI`, `IRON_SESSION_PASSWORD`, `CLOUDINARY_*`, optional `TWILIO_*` and `UPSTASH_*`.
+- Run locally: `cd server && npm i && npm run dev` (or `npm run build && npm start`).
+- Deploy to Azure App Service:
+  - `az webapp create ...` (Node 20), set env vars, `az webapp deploy ...` with the `server/dist` bundle.
+
+Verify
+- Frontend: `/api/health` → proxies to backend health (connected).
+- Frontend pages continue using `/api/...` transparently.
+
 ## 📁 Production Files Created
 
 ```

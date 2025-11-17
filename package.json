@@ -43,7 +43,7 @@
     "mongodb-memory-server": "^10.3.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vercel": "^48.8.0",
+    "vercel": "^48.9.0",
     "vitest": "^4.0.5"
   }
 }
