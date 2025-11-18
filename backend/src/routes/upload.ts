@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { assertAdmin } from '../session.js';
@@ -18,7 +18,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-router.post('/', assertAdmin, upload.single('file'), async (req, res) => {
+router.post('/', assertAdmin, upload.single('file'), async (req: Request & { file?: Express.Multer.File }, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'file is required' });
     if (process.env.NODE_ENV === 'production' && missing.length) return res.status(500).json({ error: 'Upload misconfigured' });
@@ -38,4 +38,3 @@ router.post('/', assertAdmin, upload.single('file'), async (req, res) => {
 });
 
 export default router;
-

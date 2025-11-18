@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { dbConnect } from '../db.js';
-import Order from '../../../models/Order.js';
+import Order from '../shared/models/Order.js';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 const router = Router();
@@ -58,4 +58,3 @@ router.get('/', async (req, res) => {
 });
 
 export default router;
-

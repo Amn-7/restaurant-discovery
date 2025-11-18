@@ -6,6 +6,7 @@ import MenuItem from '../shared/models/MenuItem.js';
 import { createOrderSchema, updateOrderStatusSchema } from '../shared/validators.js';
 import { broadcast } from '../shared/sse.js';
 import { assertAdmin } from '../session.js';
+import { writeLimiter } from '../middleware/ratelimit.js';
 
 const router = Router();
 
@@ -28,7 +29,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', writeLimiter, async (req, res) => {
   try {
     await dbConnect();
     const parsed = createOrderSchema.safeParse(req.body);
@@ -112,7 +113,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.patch('/:id', assertAdmin, async (req, res) => {
+router.patch('/:id', assertAdmin, writeLimiter, async (req, res) => {
   try {
     await dbConnect();
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid id' });
@@ -131,7 +132,7 @@ router.patch('/:id', assertAdmin, async (req, res) => {
   }
 });
 
-router.put('/:id', assertAdmin, async (req, res) => {
+router.put('/:id', assertAdmin, writeLimiter, async (req, res) => {
   try {
     await dbConnect();
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid id' });

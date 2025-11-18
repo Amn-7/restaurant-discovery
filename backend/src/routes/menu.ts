@@ -3,6 +3,7 @@ import { dbConnect } from '../db.js';
 import MenuItem from '../shared/models/MenuItem.js';
 import { createMenuItemSchema, updateMenuItemSchema } from '../shared/validators.js';
 import { assertAdmin } from '../session.js';
+import { writeLimiter } from '../middleware/ratelimit.js';
 
 const router = Router();
 
@@ -16,7 +17,7 @@ router.get('/', async (_req, res) => {
   }
 });
 
-router.post('/', assertAdmin, async (req, res) => {
+router.post('/', assertAdmin, writeLimiter, async (req, res) => {
   try {
     await dbConnect();
     const parsed = createMenuItemSchema.safeParse(req.body);
@@ -57,7 +58,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id', assertAdmin, async (req, res) => {
+router.put('/:id', assertAdmin, writeLimiter, async (req, res) => {
   try {
     await dbConnect();
     const parsed = updateMenuItemSchema.safeParse(req.body);
@@ -86,7 +87,7 @@ router.put('/:id', assertAdmin, async (req, res) => {
   }
 });
 
-router.delete('/:id', assertAdmin, async (req, res) => {
+router.delete('/:id', assertAdmin, writeLimiter, async (req, res) => {
   try {
     await dbConnect();
     const deleted = await MenuItem.findByIdAndDelete(req.params.id);

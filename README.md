@@ -115,10 +115,33 @@ Use real Upstash credentials (or disable the limiter) in production.
 3. **Assets** – verify you have rights to all images in `public/menu`. The helper scripts under `scripts/` download Unsplash assets for demo purposes only—replace them with licensed imagery before launch.
 4. **Monitoring** – configure your hosting (Vercel/Render/etc.) to surface logs so you can observe the structured events emitted from API routes.
 
+### Observability
+- **Structured request logs**: Backend emits JSON logs for `request.start`, `request.end`, and errors with `x-request-id`, status and `durationMs` (see `backend/src/middleware/observability.ts`). Attach your platform’s log aggregator (e.g., Cloud logs, Datadog) to parse JSON logs.
+- **Health & diagnostics**:
+  - `/api/health` now reports `uptimeSec` and `memory` (rss/heap).
+  - `/api/db/diagnostics` (admin‑gated) returns connection state and collection counts to validate Atlas setup.
+- **Uptime checks**: Point your uptime monitor at `GET /api/health` on the backend and the proxied `GET /api/health` on the frontend.
+
 ### Rollback
 - Keep the previous deployment (or container) available for redeploy. In Vercel you can revert from the Deployments tab; with container hosting keep the prior image tag ready.
 - Backup the MongoDB database (or take a snapshot) before migrations so you can restore it if needed.
 - To disable a bad release quickly, set the `MAINTENANCE_MODE=1` env (implement a banner or proxy rule) or redeploy the prior artifact.
+
+## Phase 8 – CI/CD & Deployment
+
+### Backend service
+- **Build command**: `npm ci --prefix backend && npm run build --prefix backend`
+- **Runtime command**: `node dist/index.js` (see `backend/Dockerfile` for a minimal multi-stage container that compiles TypeScript and runs the API on port 3001).
+- **Health probe**: configure your platform to hit `GET /api/health`; deployments should only go healthy once this endpoint returns `{ ok: true }`.
+- **Environment**: supply the same secrets documented in `backend/env.example` plus `SSE_REDIS_URL` if you need cross-instance SSE. In container hosts, keep them as platform secrets rather than baking into the image.
+
+### Frontend service
+- Deploy the Next.js app (e.g., Vercel, Netlify, Azure Static Web Apps). Set `API_PROXY_ORIGIN=https://your-backend-host` so `/api/*` requests proxy to the Express API.
+- Static assets are cacheable via CDN automatically; ensure your host leaves `/api/*` un-cached so live menu/orders stay dynamic.
+
+### GitHub Actions & artifacts
+- The workflow under `.github/workflows/backend-build.yml` installs backend deps, runs `npm run build --prefix backend`, and uploads the `dist` folder as an artifact you can promote into your container registry or host. Extend it with deployment steps (Render, Azure App Service, ECS, etc.) once credentials are available.
+- Keep a rollback path by retaining the previous artifact (or container image tag) and, for the frontend, using Vercel’s built-in “Revert deployment” button.
 
 ### Admin handbook
 - **Login** – visit `/admin/login` and sign in with the hashed key; sessions are stored via `iron-session` with `restaurant_admin` cookie.

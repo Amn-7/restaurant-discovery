@@ -4,6 +4,7 @@ import { dbConnect } from '../db.js';
 import Review from '../shared/models/Review.js';
 import MenuItem from '../shared/models/MenuItem.js';
 import { createReviewSchema } from '../shared/validators.js';
+import { writeLimiter } from '../middleware/ratelimit.js';
 
 const router = Router();
 
@@ -26,7 +27,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', writeLimiter, async (req, res) => {
   try {
     await dbConnect();
     const parsed = createReviewSchema.safeParse(req.body);
