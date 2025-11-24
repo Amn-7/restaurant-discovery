@@ -14,6 +14,7 @@ import {
 import { useToast } from '@/components/ToastProvider';
 import { formatINR } from '@/lib/currency';
 import Stars from '@/components/Stars';
+import { safeLocalStorage } from '@/lib/safeStorage';
 
 type OrderItem = { itemId?: string; menuItem?: string; name?: string; quantity?: number };
 type Order = {
@@ -58,7 +59,7 @@ export default function TablePage() {
   useEffect(() => {
     if (typeof window === 'undefined' || !table) return;
     const value = String(table);
-    window.localStorage.setItem('guest.tableNumber', value);
+    safeLocalStorage.set('guest.tableNumber', value);
     window.dispatchEvent(
       new CustomEvent('table-number-change', { detail: value })
     );
@@ -236,7 +237,7 @@ export default function TablePage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      const raw = window.localStorage.getItem(QUICK_RATINGS_KEY);
+      const raw = safeLocalStorage.get(QUICK_RATINGS_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw) as Record<string, number>;
       setSubmittedQuickRatings(parsed);
@@ -248,7 +249,7 @@ export default function TablePage() {
   const persistQuickRatings = useCallback((ratings: Record<string, number>) => {
     if (typeof window === 'undefined') return;
     try {
-      window.localStorage.setItem(QUICK_RATINGS_KEY, JSON.stringify(ratings));
+      safeLocalStorage.set(QUICK_RATINGS_KEY, JSON.stringify(ratings));
     } catch {
       // ignore storage errors
     }

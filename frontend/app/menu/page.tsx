@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { formatINR } from '@/lib/currency';
 import { useToast } from '@/components/ToastProvider';
 import { readCartDraft, writeCartDraft } from '@/lib/cart';
+import { safeLocalStorage } from '@/lib/safeStorage';
 
 type MenuItem = {
   _id: string;
@@ -56,7 +57,7 @@ export default function MenuPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem('guest.tableNumber');
+    const stored = safeLocalStorage.get('guest.tableNumber');
     if (stored) setTableNumber(stored);
   }, []);
 
@@ -160,7 +161,7 @@ export default function MenuPage() {
     const trimmed = entry.trim();
     if (!trimmed) return;
     setTableNumber(trimmed);
-    window.localStorage.setItem('guest.tableNumber', trimmed);
+    safeLocalStorage.set('guest.tableNumber', trimmed);
     window.dispatchEvent(new CustomEvent('table-number-change', { detail: trimmed }));
   }, []);
 

@@ -9,6 +9,7 @@ import {
   useState,
   type MouseEvent
 } from 'react';
+import { safeLocalStorage } from '@/lib/safeStorage';
 
 const primaryLinks = [
   { href: '/', label: 'Live Feed', icon: '📡' },
@@ -47,10 +48,8 @@ export default function NavBar() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      syncTableNumber(stored);
-    }
+    const stored = safeLocalStorage.get(STORAGE_KEY);
+    if (stored) syncTableNumber(stored);
 
     const handleStorage = (event: StorageEvent) => {
       if (event.key === STORAGE_KEY) {
@@ -76,13 +75,13 @@ export default function NavBar() {
     if (typeof window === 'undefined') return;
     if (value && value.trim()) {
       const trimmed = value.trim();
-      window.localStorage.setItem(STORAGE_KEY, trimmed);
+      safeLocalStorage.set(STORAGE_KEY, trimmed);
       window.dispatchEvent(
         new CustomEvent('table-number-change', { detail: trimmed })
       );
       syncTableNumber(trimmed);
     } else {
-      window.localStorage.removeItem(STORAGE_KEY);
+      safeLocalStorage.remove(STORAGE_KEY);
       window.dispatchEvent(
         new CustomEvent('table-number-change', { detail: '' })
       );

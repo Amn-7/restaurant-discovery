@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { formatINR } from '@/lib/currency';
 import { useToast } from '@/components/ToastProvider';
 import { CART_STORAGE_KEY, readCartDraft, writeCartDraft } from '@/lib/cart';
+import { safeLocalStorage } from '@/lib/safeStorage';
 import type { CartDraft } from '@/lib/cart';
 
 type MenuItem = {
@@ -65,7 +66,7 @@ export default function CartPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
-    const stored = window.localStorage.getItem(TABLE_STORAGE_KEY);
+    const stored = safeLocalStorage.get(TABLE_STORAGE_KEY);
     if (stored) setTableNumber(stored);
 
     const handleTableEvent = (event: Event) => {
@@ -177,7 +178,7 @@ export default function CartPage() {
     const trimmed = entry.trim();
     if (!trimmed) return;
     setTableNumber(trimmed);
-    window.localStorage.setItem(TABLE_STORAGE_KEY, trimmed);
+    safeLocalStorage.set(TABLE_STORAGE_KEY, trimmed);
     window.dispatchEvent(new CustomEvent('table-number-change', { detail: trimmed }));
   }, []);
 

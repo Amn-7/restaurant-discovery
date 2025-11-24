@@ -1,3 +1,5 @@
+import { safeLocalStorage } from './safeStorage';
+
 export type CartDraft = Record<string, number>;
 
 export const CART_STORAGE_KEY = 'menu.cart';
@@ -29,7 +31,7 @@ const emitChange = (payload: CartDraft) => {
 export const readCartDraft = (): CartDraft => {
   if (typeof window === 'undefined') return {};
   try {
-    const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+    const raw = safeLocalStorage.get(CART_STORAGE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
     return sanitizeCartDraft(parsed);
@@ -43,16 +45,16 @@ export const writeCartDraft = (draft: CartDraft): void => {
   const sanitized = sanitizeCartDraft(draft);
   const keys = Object.keys(sanitized);
   if (keys.length === 0) {
-    window.localStorage.removeItem(CART_STORAGE_KEY);
+    safeLocalStorage.remove(CART_STORAGE_KEY);
     emitChange({});
     return;
   }
-  window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(sanitized));
+  safeLocalStorage.set(CART_STORAGE_KEY, JSON.stringify(sanitized));
   emitChange(sanitized);
 };
 
 export const clearCartDraft = (): void => {
   if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(CART_STORAGE_KEY);
+  safeLocalStorage.remove(CART_STORAGE_KEY);
   emitChange({});
 };

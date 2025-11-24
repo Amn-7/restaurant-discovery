@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { safeLocalStorage } from '@/lib/safeStorage';
 
 type BarcodeDetectorResult = { rawValue?: string };
 type BarcodeDetectorOptions = { formats?: string[] };
@@ -46,7 +47,7 @@ export default function ScanPage() {
     if (typeof window === 'undefined') return;
     const trimmed = value.trim();
     if (!trimmed) return;
-    window.localStorage.setItem(STORAGE_KEY, trimmed);
+    safeLocalStorage.set(STORAGE_KEY, trimmed);
     window.dispatchEvent(new CustomEvent('table-number-change', { detail: trimmed }));
   }, []);
 
