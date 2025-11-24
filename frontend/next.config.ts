@@ -8,7 +8,7 @@ const csp = [
   `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
   // Allow inline styles for CSS-in-JS/Tailwind runtime style tags
   `style-src 'self' 'unsafe-inline'`,
-  "img-src 'self' data: blob: https://images.unsplash.com https://source.unsplash.com https://loremflickr.com https://images.pexels.com https://cdn.pixabay.com https://res.cloudinary.com",
+  "img-src 'self' data: blob: https://images.unsplash.com https://source.unsplash.com https://loremflickr.com https://images.pexels.com https://cdn.pixabay.com https://res.cloudinary.com https://www.google.com",
   "font-src 'self'",
   "connect-src 'self'",
   "worker-src 'self' blob:",
@@ -30,7 +30,7 @@ const securityHeaders = [
   {
     key: 'Permissions-Policy',
     value:
-      'camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=(), accelerometer=(), gyroscope=()'
+      "camera=(self), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=(), accelerometer=(), gyroscope=()"
   }
 ];
 
@@ -46,12 +46,14 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'images.pexels.com' },
       { protocol: 'https', hostname: 'cdn.pixabay.com' },
       { protocol: 'https', hostname: 'encrypted-tbn0.gstatic.com' },
-      { protocol: 'https', hostname: 'res.cloudinary.com' }
+      { protocol: 'https', hostname: 'res.cloudinary.com' },
+      { protocol: 'https', hostname: 'www.google.com' }
     ]
   },
   async rewrites() {
     const target = process.env.API_PROXY_ORIGIN;
     if (!target) return [];
+    // Proxy API calls to a separate backend origin while keeping same-origin URLs in the browser
     return [
       { source: '/api/:path*', destination: `${target}/api/:path*` },
       { source: '/sse/:path*', destination: `${target}/sse/:path*` }

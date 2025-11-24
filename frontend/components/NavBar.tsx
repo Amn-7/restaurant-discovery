@@ -13,6 +13,7 @@ import {
 const primaryLinks = [
   { href: '/', label: 'Live Feed', icon: '📡' },
   { href: '/menu', label: 'Menu', icon: '🍽️' },
+  { href: '/cart', label: 'Cart', icon: '🛒' },
   { href: '/analytics', label: 'Analytics', icon: '📊' }
 ];
 
@@ -180,17 +181,27 @@ export default function NavBar() {
           <span />
         </button>
         <div className="app-nav__links" data-open={open ? 'true' : 'false'}>
-          {desktopLinks}
-          <button
-            type="button"
-            className="app-nav__link app-nav__button"
-            data-active={isTableActive ? 'true' : 'false'}
-            onClick={handleTableClick}
-            onContextMenu={handleTableContextMenu}
-            title="Click to open your table. Shift-click to set a different table. Right-click to clear."
-          >
-            🪑 {tableLabel}
-          </button>
+          <div className="app-nav__links-list">{desktopLinks}</div>
+          <div className="app-nav__links-actions">
+            <Link
+              href="/scan"
+              className="app-nav__link app-nav__button"
+              data-active={pathname.startsWith('/scan') ? 'true' : 'false'}
+              title="Open camera to scan your table QR"
+            >
+              📷 Scan
+            </Link>
+            <button
+              type="button"
+              className="app-nav__link app-nav__button"
+              data-active={isTableActive ? 'true' : 'false'}
+              onClick={handleTableClick}
+              onContextMenu={handleTableContextMenu}
+              title="Click to open your table. Shift-click to set a different table. Right-click to clear."
+            >
+              🪑 {tableLabel}
+            </button>
+          </div>
         </div>
       </nav>
       <nav className="app-nav-mobile" aria-label="Primary navigation">
@@ -209,6 +220,14 @@ export default function NavBar() {
         >
           <span aria-hidden>🍽️</span>
           <span>Menu</span>
+        </Link>
+        <Link
+          href="/scan"
+          data-active={pathname.startsWith('/scan') ? 'true' : 'false'}
+          className="app-nav-mobile__link"
+        >
+          <span aria-hidden>📷</span>
+          <span>Scan</span>
         </Link>
         <button
           type="button"

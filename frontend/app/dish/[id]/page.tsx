@@ -122,10 +122,11 @@ export default function DishPage() {
         <div className="card card--flush">
           <div className="card__media">
             <Image
-              src={item.imageUrl}
+              src={item.imageUrl.startsWith('http') ? `${item.imageUrl}${item.imageUrl.includes('?') ? '&' : '?'}w=800&h=600&c_fill&f_auto&q=70` : item.imageUrl}
               alt={item.name}
               fill
-              sizes="(max-width: 768px) 100vw, 640px"
+              sizes="(max-width: 480px) 100vw, 640px"
+              priority
               className="card__media-image"
             />
           </div>

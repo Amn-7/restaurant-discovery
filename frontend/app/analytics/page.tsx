@@ -305,7 +305,7 @@ const previousItems = popular?.previous?.items ?? EMPTY_POPULAR_ITEMS; // previo
       </section>
 
       {/* Popular */}
-      <section className="card card--stacked">
+      <section className="card card--stacked card--scroll">
         <div className="page__header">
           <div>
             <h2 className="section-heading">🔥 Popular right now</h2>
@@ -326,7 +326,7 @@ const previousItems = popular?.previous?.items ?? EMPTY_POPULAR_ITEMS; // previo
         {!popErr && !popLoading && (
           <>
             {popularItems.length > 0 ? (
-              <div className="grid grid--cols-auto">
+              <div className="popular-grid">
                 {popularItems.map((item, idx) => {
                   const href = item.menuItem ? `/dish/${item.menuItem}` : '/menu';
                   const summary = computeChangeFromMap(item as PopularItem, previousMap);
@@ -377,7 +377,7 @@ const previousItems = popular?.previous?.items ?? EMPTY_POPULAR_ITEMS; // previo
       </section>
 
       {/* Ratings */}
-      <section className="card card--stacked">
+      <section className="card card--stacked card--scroll">
         <div className="page__header">
           <div>
             <h2 className="section-heading">⭐ Top rated</h2>

@@ -359,10 +359,10 @@ export default function TablePage() {
                 {item.imageUrl ? (
                   <div className="card__media">
                     <Image
-                      src={item.imageUrl}
+                      src={item.imageUrl.startsWith('http') ? `${item.imageUrl}${item.imageUrl.includes('?') ? '&' : '?'}w=600&h=420&c_fill&f_auto&q=70` : item.imageUrl}
                       alt={item.name}
                       fill
-                      sizes="(max-width: 768px) 100vw, 320px"
+                      sizes="(max-width: 480px) 100vw, 320px"
                       className="card__media-image"
                     />
                   </div>

@@ -1,6 +1,6 @@
 'use client';
 import useSWR, { useSWRConfig } from 'swr';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useCallback, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -15,7 +15,11 @@ type Order = { _id: string; tableNumber: string; items: OrderItem[]; status: 'or
 type RatingItem = { menuItem: string | null; name?: string; imageUrl?: string; category?: string; count: number; avg: number };
 type RatingsRes = { since: string; hours: number; sort: 'count'|'avg'; items: RatingItem[] };
 
-const fetcher = (url: string) => fetch(url).then(r => r.json());
+const fetcher = (url: string) =>
+  fetch(url).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
 const EMPTY_POPULAR_ITEMS: PopularResponse['items'] = [];
 
 function timeAgo(iso: string) {
@@ -33,11 +37,20 @@ function timeAgo(iso: string) {
 export default function LiveFeedPage() {
   const { mutate } = useSWRConfig();
   const ordersKey = '/api/orders?active=1&hours=6&limit=50';
+  const [popularRev, setPopularRev] = useState(0);
+  const popularKey = useMemo(
+    () => `/api/analytics/popular?hours=6&limit=20&compare=1&rev=${popularRev}`,
+    [popularRev]
+  );
+  const refreshPopular = useCallback(() => {
+    setPopularRev((rev) => rev + 1);
+  }, []);
 
   useEffect(() => {
     const es = new EventSource('/api/stream/orders');
     const bump = () => {
       mutate(ordersKey);
+      refreshPopular();
     };
     es.addEventListener('order-created', bump);
     es.addEventListener('order-updated', bump);
@@ -46,12 +59,12 @@ export default function LiveFeedPage() {
       es.removeEventListener('order-updated', bump);
       es.close();
     };
-  }, [mutate, ordersKey]);
+  }, [mutate, ordersKey, refreshPopular]);
 
   const { data: orders, error, isLoading } = useSWR<Order[]>(ordersKey, fetcher, {
     refreshInterval: 3000
   });
-  const { data: popular } = useSWR<PopularResponse>('/api/analytics/popular?hours=6&limit=5&compare=1', fetcher, {
+  const { data: popular } = useSWR<PopularResponse>(popularKey, fetcher, {
     refreshInterval: 10000
   });
   const { data: favouriteData } = useSWR<RatingsRes>(
@@ -61,6 +74,9 @@ export default function LiveFeedPage() {
   );
 
   const popularItems = popular?.items ?? EMPTY_POPULAR_ITEMS;
+  const sortedPopular = useMemo(() => {
+    return [...popularItems].sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
+  }, [popularItems]);
   const previousMap = useMemo(
     () => buildPopularMap(popular?.previous?.items),
     [popular]
@@ -94,6 +110,11 @@ export default function LiveFeedPage() {
     }
   }, [popular]);
 
+  const popularRefreshedLabel = useMemo(() => {
+    if (!popular?.since) return 'live';
+    return timeAgo(popular.since);
+  }, [popular]);
+
   const favourite = favouriteData?.items?.[0];
   const activeTables = useMemo(() => {
     if (!orders) return 0;
@@ -101,9 +122,39 @@ export default function LiveFeedPage() {
   }, [orders]);
   const inFlight = useMemo(() => (orders ?? []).filter(o => o.status !== 'served').length, [orders]);
 
+  const orderEntries = useMemo(() => {
+    if (!orders) return [] as Array<{ id: string; name: string; imageUrl?: string; quantity: number; table: string; status: Order['status']; createdAt: string; menuItem?: string | null }>;
+    return orders
+      .flatMap((order) =>
+        (order.items ?? []).map((item, idx) => ({
+          id: `${order._id}-${idx}`,
+          name: item.name ?? 'Dish',
+          imageUrl: item.imageUrl,
+          quantity: item.quantity ?? 1,
+          table: order.tableNumber,
+          status: order.status,
+          createdAt: order.createdAt,
+          menuItem: item.menuItem ?? null
+        }))
+      )
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [orders]);
+
+  const latestOrderMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (orderEntries ?? []).forEach((entry) => {
+      const key = entry.menuItem ?? entry.name;
+      if (!key) return;
+      const prev = map.get(key);
+      if (!prev || new Date(entry.createdAt).getTime() > new Date(prev).getTime()) {
+        map.set(key, entry.createdAt);
+      }
+    });
+    return map;
+  }, [orderEntries]);
+
   const showLoading = isLoading && !orders;
   const showError = Boolean(error);
-  const hasOrders = (orders ?? []).length > 0;
 
   return (
     <div className="page">
@@ -181,46 +232,54 @@ export default function LiveFeedPage() {
         </div>
       </section>
 
-      {popularItems.length > 0 && (
-        <section className="card card--stacked">
+      {sortedPopular.length > 0 && (
+        <section className="card card--stacked card--scroll">
           <div className="page__header">
             <div>
               <h2 className="section-heading">🔥 Popular right now</h2>
               {popularSince ? (
                 <p className="section-subtitle">Since {popularSince}</p>
               ) : (
-                <p className="section-subtitle">Top-performing dishes over the last few hours.</p>
+                <p className="section-subtitle">Recent dishes ordered across the floor.</p>
               )}
             </div>
             <Link href="/analytics" className="btn btn--ghost">
               Open analytics
             </Link>
           </div>
-          <div className="popular-strip">
-            {popularItems.map((p, idx) => {
-              const href = p.menuItem ? `/dish/${p.menuItem}` : '/menu';
+          <div className="hero__list hero__list--scroll hero__list--popular">
+            {sortedPopular.map((p, idx) => {
+              const latestKey = p.menuItem ?? p.name ?? '';
+              const latestTime = latestOrderMap.get(latestKey);
               return (
                 <Link
                   key={`${p.menuItem ?? p.name}-${idx}`}
-                  href={href}
-                  className="card card--interactive card--tight"
+                  href={p.menuItem ? `/dish/${p.menuItem}` : '/menu'}
+                  className="hero__list-item hero__list-item--card hero__list-item--popular"
                   aria-disabled={!p.menuItem}
                 >
                   {p.imageUrl ? (
-                    <div className="card__media">
+                    <span className="hero__list-thumb">
                       <Image
                         src={p.imageUrl}
                         alt={p.name ?? 'Dish'}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 320px"
-                        className="card__media-image"
+                        width={48}
+                        height={48}
+                        className="hero__list-thumb-img"
                       />
-                    </div>
-                  ) : null}
-                  <div className="card__body">
-                    <div className="card__title">{p.name}</div>
-                    <p className="card__meta">{p.count} orders</p>
-                  </div>
+                    </span>
+                  ) : (
+                    <span className="hero__list-thumb hero__list-thumb--placeholder" aria-hidden>
+                      🍽️
+                    </span>
+                  )}
+                  <span className="hero__list-body">
+                    <span className="hero__list-name">{p.name ?? 'Dish'}</span>
+                    <span className="hero__list-count">
+                      <span className="hero__list-count-pill">Ordered {p.count} times</span>
+                    </span>
+                  </span>
+                  <span className="hero__list-tag">{latestTime ? timeAgo(latestTime) : popularRefreshedLabel}</span>
                 </Link>
               );
             })}
@@ -241,60 +300,53 @@ export default function LiveFeedPage() {
         {showLoading && <p className="muted">Loading live feed…</p>}
 
         {!showError && (
-          <div className="live-feed">
-            {(orders ?? []).map((o) => {
+          <div className="hero__list hero__list--scroll hero__list--timeline">
+            {orderEntries.map((entry) => {
+              const href = entry.menuItem ? `/dish/${entry.menuItem}` : '/menu';
               const statusClass =
-                o.status === 'served'
+                entry.status === 'served'
                   ? 'status status--success'
-                  : o.status === 'preparing'
+                  : entry.status === 'preparing'
                   ? 'status status--accent'
                   : 'status status--neutral';
-
               return (
-                <article key={o._id} className="live-feed__item">
-                  <div className="live-feed__meta">
-                    <div className="live-feed__meta-left">
-                      <strong>Table {o.tableNumber}</strong>
-                      <span>{timeAgo(o.createdAt)}</span>
-                    </div>
-                    <div className="live-feed__meta-right">
-                      <span className={statusClass}>{o.status}</span>
-                      <span className="chip">#{o._id.slice(-6)}</span>
-                    </div>
-                  </div>
-                  <div className="live-feed__items">
-                    {o.items.map((it, idx) => (
-                      <div key={`${o._id}-${idx}`} className="order-item">
-                        <div className="order-item__media">
-                          {it.imageUrl ? (
-                            <Image
-                              src={it.imageUrl}
-                              alt={it.name}
-                              width={56}
-                              height={56}
-                              className="order-item__thumb"
-                            />
-                          ) : null}
-                          <div>
-                            <div className="order-item__name">{it.name}</div>
-                            <div className="order-item__meta">Qty {it.quantity}</div>
-                            {it.menuItem ? (
-                              <Link className="order-item__link" href={`/dish/${it.menuItem}`}>
-                                View &amp; rate dish
-                              </Link>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </article>
+                <Link
+                  key={`${entry.id}-feed`}
+                  href={href}
+                  className="hero__list-item hero__list-item--card hero__list-item--feed"
+                  aria-disabled={!entry.menuItem}
+                >
+                  {entry.imageUrl ? (
+                    <span className="hero__list-thumb">
+                      <Image
+                        src={entry.imageUrl}
+                        alt={entry.name}
+                        width={48}
+                        height={48}
+                        className="hero__list-thumb-img"
+                      />
+                    </span>
+                  ) : (
+                    <span className="hero__list-thumb hero__list-thumb--placeholder" aria-hidden>
+                      🍽️
+                    </span>
+                  )}
+                  <span className="hero__list-body">
+                    <span className="hero__list-name">{entry.name}</span>
+                    <span className="hero__list-count">Qty {entry.quantity} • Table {entry.table}</span>
+                    <span className="hero__list-hint">
+                      <span className={statusClass} style={{ fontSize: '0.68rem' }}>{entry.status}</span>
+                      <span className="chip chip--faded">#{entry.id.slice(-6)}</span>
+                    </span>
+                  </span>
+                  <span className="hero__list-tag">{timeAgo(entry.createdAt)}</span>
+                </Link>
               );
             })}
           </div>
         )}
 
-        {!showError && !showLoading && !hasOrders && (
+        {!showError && !showLoading && orderEntries.length === 0 && (
           <p className="muted">No recent orders yet. Hungry silence…</p>
         )}
       </section>

@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
+import { promises as fs } from 'fs';
+import path from 'path';
 import { v2 as cloudinary } from 'cloudinary';
 import { assertAdmin } from '../session.js';
 
@@ -18,24 +20,59 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
+const resolveLocalDir = () => {
+  if (process.env.LOCAL_UPLOAD_DIR) return path.resolve(process.env.LOCAL_UPLOAD_DIR);
+  return path.resolve(process.cwd(), '../frontend/public/uploads');
+};
+
+const saveLocal = async (file: any) => {
+  const dir = resolveLocalDir();
+  await fs.mkdir(dir, { recursive: true });
+  const safeName = (file.originalname || 'upload.jpg').replace(/[^\w.-]+/g, '_');
+  const filename = `${Date.now()}-${safeName}`;
+  await fs.writeFile(path.join(dir, filename), file.buffer);
+  return { url: `/uploads/${filename}` };
+};
+
 router.post('/', assertAdmin, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'file is required' });
-    if (process.env.NODE_ENV === 'production' && missing.length) return res.status(500).json({ error: 'Upload misconfigured' });
-    const folder = process.env.CLOUDINARY_UPLOAD_FOLDER || 'restaurant/menu';
-    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
-    const result = await new Promise<any>((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder, resource_type: 'image', upload_preset: uploadPreset, use_filename: true, unique_filename: false, overwrite: false, transformation: [{ width: 1600, height: 1600, crop: 'limit' }] },
-        (err, res) => (err ? reject(err) : resolve(res))
-      );
-      stream.end(req.file!.buffer);
-    });
-    res.json({ url: result.secure_url, public_id: result.public_id, width: result.width, height: result.height, format: result.format });
+    const canUseCloud = missing.length === 0 && process.env.LOCAL_UPLOAD_ONLY !== '1';
+    if (canUseCloud) {
+      const folder = process.env.CLOUDINARY_UPLOAD_FOLDER || 'restaurant/menu';
+      const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
+      const originalName = req.file.originalname || 'upload';
+      const safeName = originalName.replace(/[^\w.-]+/g, '_');
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      const publicId = `${uniqueSuffix}-${safeName}`.replace(/\.+$/, '');
+      const result = await new Promise<any>((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder,
+            resource_type: 'image',
+            upload_preset: uploadPreset || undefined,
+            public_id: publicId,
+            overwrite: false,
+            transformation: [{ width: 1600, height: 1600, crop: 'limit' }]
+          },
+          (err, cloudResult) => (err ? reject(err) : resolve(cloudResult))
+        );
+        stream.end(req.file!.buffer);
+      });
+      return res.json({
+        url: result.secure_url,
+        public_id: result.public_id,
+        width: result.width,
+        height: result.height,
+        format: result.format
+      });
+    }
+    const local = await saveLocal(req.file);
+    return res.json(local);
   } catch (err) {
+    console.error('[upload] failed', err);
     res.status(500).json({ error: 'Upload failed' });
   }
 });
 
 export default router;
-
