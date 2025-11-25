@@ -11,6 +11,7 @@ import analyticsRouter from './routes/analytics.js';
 import uploadRouter from './routes/upload.js';
 import streamRouter from './routes/stream.js';
 import exportRouter from './routes/export.js';
+import qrRouter from './routes/qr.js';
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use('/api/analytics', analyticsRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/orders/export', exportRouter);
 app.use('/api/stream', streamRouter);
+app.use('/api/qr', qrRouter);
 
 const port = Number(process.env.PORT || 3001);
 app.listen(port, () => {

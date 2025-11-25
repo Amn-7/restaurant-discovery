@@ -13,6 +13,7 @@ import analyticsRouter from './routes/analytics.js';
 import uploadRouter from './routes/upload.js';
 import streamRouter from './routes/stream.js';
 import exportRouter from './routes/export.js';
+import qrRouter from './routes/qr.js';
 import diagnosticsRouter from './routes/diagnostics.js';
 
 const app = express();
@@ -67,6 +68,7 @@ app.use('/api/analytics', analyticsRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/stream', streamRouter);
 app.use('/api/db', diagnosticsRouter);
+app.use('/api/qr', qrRouter);
 
 // Error handler (structured JSON logs)
 app.use(errorHandler);
