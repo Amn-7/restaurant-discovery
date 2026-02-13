@@ -24,18 +24,24 @@ type MenuItem = {
 };
 
 const fetcher = async (url: string) => {
-  const res = await fetch(url);
-  const ct = res.headers.get('content-type') ?? '';
-  if (!res.ok) {
-    if (ct.includes('application/json')) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
-      throw new Error(body.error ?? body.message ?? `HTTP ${res.status}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 9000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    const ct = res.headers.get('content-type') ?? '';
+    if (!res.ok) {
+      if (ct.includes('application/json')) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+        throw new Error(body.error ?? body.message ?? `HTTP ${res.status}`);
+      }
+      const txt = await res.text().catch(() => '');
+      throw new Error(txt || `HTTP ${res.status}`);
     }
-    const txt = await res.text().catch(() => '');
-    throw new Error(txt || `HTTP ${res.status}`);
+    if (ct.includes('application/json')) return res.json();
+    throw new Error('Unexpected response type');
+  } finally {
+    clearTimeout(timeout);
   }
-  if (ct.includes('application/json')) return res.json();
-  throw new Error('Unexpected response type');
 };
 
 const CART_TIMEOUT = 4000;
@@ -43,7 +49,10 @@ const CART_TIMEOUT = 4000;
 export default function MenuPage() {
   const router = useRouter();
   const { push } = useToast();
-  const { data, error, isLoading } = useSWR<MenuItem[]>('/api/menu', fetcher);
+  const { data, error, isLoading } = useSWR<MenuItem[]>('/api/menu', fetcher, {
+    fallbackData: [],
+    keepPreviousData: true
+  });
 
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('all');
@@ -263,9 +272,9 @@ export default function MenuPage() {
       </section>
 
       {showError && <p className="muted">Failed to load menu: {error instanceof Error ? error.message : 'Error'}</p>}
-      {showLoading && <p className="muted">Loading menu…</p>}
+      {showLoading && <p className="muted">Fetching menu... showing quick fallback while backend wakes up.</p>}
 
-      {!showError && !showLoading && (
+      {!showError && (
         <>
           <div className="grid grid--cols-auto">
             {filteredItems.map((item) => {
@@ -340,8 +349,12 @@ export default function MenuPage() {
 
           {filteredItems.length === 0 && (
             <div className="card card--stacked">
-              <h3 className="section-heading">No dishes found</h3>
-              <p className="section-subtitle">Try clearing filters or searching for something else.</p>
+              <h3 className="section-heading">{showLoading ? 'Fetching dishes' : 'No dishes found'}</h3>
+              <p className="section-subtitle">
+                {showLoading
+                  ? 'The first request can take a few seconds when the backend wakes up.'
+                  : 'Try clearing filters or searching for something else.'}
+              </p>
             </div>
           )}
         </>

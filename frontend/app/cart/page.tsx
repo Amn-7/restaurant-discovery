@@ -33,28 +33,38 @@ type CartEntry = {
 const TABLE_STORAGE_KEY = 'guest.tableNumber';
 
 const fetcher = async (u: string) => {
-  const r = await fetch(u);
-  const ct = r.headers.get('content-type') ?? '';
-  if (!r.ok) {
-    if (ct.includes('application/json')) {
-      type ApiError = { message?: string; error?: string };
-      const body = (await r.json().catch(() => ({}))) as unknown as ApiError;
-      const msg = body && (body.message || body.error) ? (body.message || body.error) : `HTTP ${r.status}`;
-      throw new Error(String(msg));
-    } else {
-      const text = await r.text().catch(() => '');
-      if (r.status === 401 && text.includes('Authentication Required')) {
-        throw new Error('Deployment is protected by Vercel. Disable protection or use a bypass token.');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 9000);
+  try {
+    const r = await fetch(u, { signal: controller.signal });
+    const ct = r.headers.get('content-type') ?? '';
+    if (!r.ok) {
+      if (ct.includes('application/json')) {
+        type ApiError = { message?: string; error?: string };
+        const body = (await r.json().catch(() => ({}))) as unknown as ApiError;
+        const msg = body && (body.message || body.error) ? (body.message || body.error) : `HTTP ${r.status}`;
+        throw new Error(String(msg));
+      } else {
+        const text = await r.text().catch(() => '');
+        if (r.status === 401 && text.includes('Authentication Required')) {
+          throw new Error('Deployment is protected by Vercel. Disable protection or use a bypass token.');
+        }
+        throw new Error(`HTTP ${r.status}`);
       }
-      throw new Error(`HTTP ${r.status}`);
     }
+    if (ct.includes('application/json')) return r.json();
+    throw new Error('Unexpected response type from API');
+  } finally {
+    clearTimeout(timeout);
   }
-  if (ct.includes('application/json')) return r.json();
-  throw new Error('Unexpected response type from API');
 };
 
 export default function CartPage() {
-  const { data, error, isLoading } = useSWR<MenuItem[]>('/api/menu', fetcher, { refreshInterval: 0 });
+  const { data, error, isLoading } = useSWR<MenuItem[]>('/api/menu', fetcher, {
+    refreshInterval: 0,
+    fallbackData: [],
+    keepPreviousData: true
+  });
   const router = useRouter();
   const { push: pushToast } = useToast();
   const [draft, setDraft] = useState<Record<string, number>>(() => {
@@ -272,7 +282,7 @@ export default function CartPage() {
       {showError && (
         <p className="muted">Failed to load menu data: {error instanceof Error ? error.message : 'Unknown error'}</p>
       )}
-      {showLoading && <p className="muted">Loading cart…</p>}
+      {showLoading && <p className="muted">Fetching latest menu data for your cart...</p>}
 
       {!showError && (
         <>

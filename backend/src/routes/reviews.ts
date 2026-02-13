@@ -5,6 +5,7 @@ import Review from '../shared/models/Review.js';
 import MenuItem from '../shared/models/MenuItem.js';
 import { createReviewSchema } from '../shared/validators.js';
 import { writeLimiter } from '../middleware/ratelimit.js';
+import { invalidateCache } from '../lib/responseCache.js';
 
 const router = Router();
 
@@ -40,6 +41,7 @@ router.post('/', writeLimiter, async (req, res) => {
     if (!exists) return res.status(404).json({ error: 'menu item not found' });
     const created = await Review.create({ menuItem: menuItemObjectId, order: orderId ? new mongoose.Types.ObjectId(orderId) : undefined, rating, comment });
     const o: any = created.toObject({ depopulate: true });
+    invalidateCache('analytics:');
     res.status(201).json({ ...o, _id: String(o._id), menuItem: o.menuItem ? String(o.menuItem) : null, order: o.order ? String(o.order) : null });
   } catch (err) {
     res.status(500).json({ error: 'Failed to create review' });

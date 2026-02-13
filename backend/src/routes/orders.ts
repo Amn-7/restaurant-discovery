@@ -7,6 +7,7 @@ import { createOrderSchema, updateOrderStatusSchema } from '../shared/validators
 import { broadcast } from '../shared/sse.js';
 import { assertAdmin } from '../session.js';
 import { writeLimiter } from '../middleware/ratelimit.js';
+import { invalidateCache } from '../lib/responseCache.js';
 
 const router = Router();
 
@@ -83,6 +84,8 @@ router.post('/', writeLimiter, async (req, res) => {
         { new: false }
       );
     }
+    invalidateCache('menu:');
+    invalidateCache('analytics:');
 
     try {
       broadcast?.('order-created', {
@@ -123,6 +126,7 @@ router.patch('/:id', assertAdmin, writeLimiter, async (req, res) => {
     if (parsed.data.status === 'served') update.servedAt = new Date();
     const updated = await Order.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
     if (!updated) return res.status(404).json({ error: 'Not found' });
+    invalidateCache('analytics:');
     try {
       broadcast?.('order-updated', { _id: String(updated._id), status: updated.status, servedAt: updated.servedAt ?? null });
     } catch {}
@@ -141,6 +145,7 @@ router.put('/:id', assertAdmin, writeLimiter, async (req, res) => {
     const update: any = { status: parsed.data.status, servedAt: parsed.data.status === 'served' ? new Date() : undefined };
     const updated = await Order.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
     if (!updated) return res.status(404).json({ error: 'Order not found' });
+    invalidateCache('analytics:');
     try {
       broadcast?.('order-updated', { _id: String(updated._id), status: updated.status, servedAt: updated.servedAt ?? null });
     } catch {}

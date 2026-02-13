@@ -16,11 +16,29 @@ type RatingItem = { menuItem: string | null; name?: string; imageUrl?: string; c
 type RatingsRes = { since: string; hours: number; sort: 'count'|'avg'; items: RatingItem[] };
 
 const fetcher = (url: string) =>
-  fetch(url).then((r) => {
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return r.json();
-  });
+  {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 9000);
+    return fetch(url, { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .finally(() => clearTimeout(timeout));
+  };
 const EMPTY_POPULAR_ITEMS: PopularResponse['items'] = [];
+const EMPTY_ORDERS: Order[] = [];
+const EMPTY_POPULAR: PopularResponse = {
+  since: new Date(0).toISOString(),
+  hours: 6,
+  items: []
+};
+const EMPTY_RATINGS: RatingsRes = {
+  since: new Date(0).toISOString(),
+  hours: 48,
+  sort: 'avg',
+  items: []
+};
 
 function timeAgo(iso: string) {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -62,15 +80,19 @@ export default function LiveFeedPage() {
   }, [mutate, ordersKey, refreshPopular]);
 
   const { data: orders, error, isLoading } = useSWR<Order[]>(ordersKey, fetcher, {
-    refreshInterval: 3000
+    refreshInterval: 3000,
+    fallbackData: EMPTY_ORDERS,
+    keepPreviousData: true
   });
   const { data: popular } = useSWR<PopularResponse>(popularKey, fetcher, {
-    refreshInterval: 10000
+    refreshInterval: 10000,
+    fallbackData: EMPTY_POPULAR,
+    keepPreviousData: true
   });
   const { data: favouriteData } = useSWR<RatingsRes>(
     '/api/analytics/ratings?hours=48&limit=1&sort=avg',
     fetcher,
-    { refreshInterval: 12000 }
+    { refreshInterval: 12000, fallbackData: EMPTY_RATINGS, keepPreviousData: true }
   );
 
   const popularItems = popular?.items ?? EMPTY_POPULAR_ITEMS;
@@ -153,7 +175,7 @@ export default function LiveFeedPage() {
     return map;
   }, [orderEntries]);
 
-  const showLoading = isLoading && !orders;
+  const showLoading = isLoading && (orders?.length ?? 0) === 0;
   const showError = Boolean(error);
 
   return (

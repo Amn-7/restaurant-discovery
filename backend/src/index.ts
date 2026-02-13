@@ -74,6 +74,19 @@ app.use('/api/qr', qrRouter);
 app.use(errorHandler);
 
 const port = Number(process.env.PORT || 3001);
-app.listen(port, () => {
-  console.log(`[api] listening on :${port}`);
-});
+
+const start = async () => {
+  const t0 = Date.now();
+  try {
+    await dbConnect();
+    console.log(`[api] db preconnected in ${Date.now() - t0}ms`);
+  } catch (err) {
+    console.error('[api] db preconnect failed; continuing startup', err);
+  }
+
+  app.listen(port, () => {
+    console.log(`[api] listening on :${port}`);
+  });
+};
+
+void start();

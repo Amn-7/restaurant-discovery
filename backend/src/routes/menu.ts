@@ -4,14 +4,19 @@ import MenuItem from '../shared/models/MenuItem.js';
 import { createMenuItemSchema, updateMenuItemSchema } from '../shared/validators.js';
 import { assertAdmin } from '../session.js';
 import { writeLimiter } from '../middleware/ratelimit.js';
+import { invalidateCache, withCache } from '../lib/responseCache.js';
 
 const router = Router();
 
 router.get('/', async (_req, res) => {
   try {
     await dbConnect();
-    const items = await MenuItem.find({}).sort({ createdAt: -1 }).lean();
-    res.json(items.map((it: any) => ({ ...it, _id: String(it._id) })));
+    const cached = await withCache('menu:list:v1', 15_000, async () => {
+      const items = await MenuItem.find({}).sort({ createdAt: -1 }).lean();
+      return items.map((it: any) => ({ ...it, _id: String(it._id) }));
+    });
+    res.setHeader('X-Cache', cached.hit ? 'HIT' : 'MISS');
+    res.json(cached.value);
   } catch (err) {
     res.status(500).json({ error: 'Failed to load menu', message: err instanceof Error ? err.message : 'unknown' });
   }
@@ -41,6 +46,8 @@ router.post('/', assertAdmin, writeLimiter, async (req, res) => {
 
     const doc = await MenuItem.create(payload);
     const o = doc.toObject({ depopulate: true });
+    invalidateCache('menu:');
+    invalidateCache('analytics:');
     res.status(201).json({ ...o, _id: String(o._id) });
   } catch (err) {
     res.status(500).json({ error: 'Failed to create item', message: err instanceof Error ? err.message : 'unknown' });
@@ -81,6 +88,8 @@ router.put('/:id', assertAdmin, writeLimiter, async (req, res) => {
     }
     const updated = await MenuItem.findByIdAndUpdate(req.params.id, updateData, { new: true }).lean();
     if (!updated) return res.status(404).json({ error: 'Not found' });
+    invalidateCache('menu:');
+    invalidateCache('analytics:');
     res.json({ ...updated, _id: String(updated._id) });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update' });
@@ -92,6 +101,8 @@ router.delete('/:id', assertAdmin, writeLimiter, async (req, res) => {
     await dbConnect();
     const deleted = await MenuItem.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Not found' });
+    invalidateCache('menu:');
+    invalidateCache('analytics:');
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete' });
