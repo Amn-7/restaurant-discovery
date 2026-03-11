@@ -13,15 +13,25 @@ function resolvePassword(): string {
   return DEV_FALLBACK_PASSWORD;
 }
 
-export const sessionMiddleware = ironSession({
-  cookieName: 'restaurant_admin',
-  password: resolvePassword(),
-  cookieOptions: {
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    domain: process.env.ADMIN_COOKIE_DOMAIN || undefined
-  }
-});
+const DEFAULT_TTL = 24 * 60 * 60; // 1 day in seconds
+const REMEMBER_ME_TTL = 30 * 24 * 60 * 60; // 30 days in seconds
+
+function createSessionOptions(ttl: number = DEFAULT_TTL) {
+  return {
+    cookieName: 'restaurant_admin',
+    password: resolvePassword(),
+    ttl,
+    cookieOptions: {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      maxAge: ttl,
+      domain: process.env.ADMIN_COOKIE_DOMAIN || undefined
+    }
+  };
+}
+
+export const sessionMiddleware = ironSession(createSessionOptions());
+export const rememberMeSessionMiddleware = ironSession(createSessionOptions(REMEMBER_ME_TTL));
 
 export type AdminSession = {
   admin?: { id: string };

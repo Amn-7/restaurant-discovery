@@ -95,7 +95,7 @@ router.get('/ratings', async (req, res) => {
       const match: any = { createdAt: { $gte: since } };
       const id = menuItem || menuItemId;
       if (id) {
-        if (!mongoose.Types.ObjectId.isValid(id)) return { status: 400, payload: { error: 'Invalid menuItem id' } };
+        if (!mongoose.Types.ObjectId.isValid(id)) throw { statusCode: 400, message: 'Invalid menuItem id' };
         match.menuItem = new mongoose.Types.ObjectId(id);
       }
 
@@ -135,12 +135,10 @@ router.get('/ratings', async (req, res) => {
       };
     });
 
-    if ((cached.value as any).status === 400) {
-      return res.status(400).json((cached.value as any).payload);
-    }
     res.setHeader('X-Cache', cached.hit ? 'HIT' : 'MISS');
     res.json((cached.value as any).payload);
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.statusCode === 400) return res.status(400).json({ error: err.message });
     res.status(500).json({ error: 'Failed to compute rating analytics' });
   }
 });

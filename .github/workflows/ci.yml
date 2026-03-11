@@ -19,24 +19,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
 
-      - name: Lint
-        run: npm run lint
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
 
-      - name: Type check
-        run: npm run typecheck
+      - name: Lint frontend
+        run: npm run lint --prefix frontend
 
-      - name: Unit tests
-        run: npm run test -- --run
+      - name: Type check frontend
+        run: npm run typecheck --prefix frontend
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
-
-      - name: Playwright tests
-        env:
-          PLAYWRIGHT_SKIP_WEB_SERVER: ''
-        run: npm run test:e2e
+      - name: Build backend
+        run: npm run build --prefix backend

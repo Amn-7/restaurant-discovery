@@ -15,7 +15,7 @@ async function authorizeWithHeader(req: any): Promise<boolean> {
       if (await bcrypt.compare(adminKey, adminHash)) return true;
     } catch {}
   }
-  if (adminPlain && adminKey === adminPlain) return true;
+  if (adminPlain && process.env.NODE_ENV !== 'production' && adminKey === adminPlain) return true;
   return false;
 }
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import type { Request, Response } from 'express';
 import { loginLimiter } from '../middleware/ratelimit.js';
+import { rememberMeSessionMiddleware } from '../session.js';
 
 const router = Router();
 
@@ -29,17 +30,14 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
   }
   if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
-  req.session.admin = { id: 'admin' };
+  // If rememberMe, re-initialize session with 30-day TTL cookie
   if (rememberMe) {
-    // iron-session (express) exposes cookie settings on sessionOptions
-    try {
-      // @ts-expect-error runtime property provided by iron-session
-      if (req.sessionOptions && req.sessionOptions.cookieOptions) {
-        // @ts-expect-error runtime property provided by iron-session
-        req.sessionOptions.cookieOptions.maxAge = 30 * 24 * 60 * 60 * 1000;
-      }
-    } catch {}
+    await new Promise<void>((resolve, reject) => {
+      rememberMeSessionMiddleware(req, res, (err?: any) => (err ? reject(err) : resolve()));
+    });
   }
+
+  req.session.admin = { id: 'admin' };
   await req.session.save();
   res.json({ ok: true });
 });

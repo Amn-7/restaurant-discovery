@@ -8,10 +8,6 @@ router.get('/orders', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
 
-  const { writable, readable } = new (global as any).TransformStream();
-  // Node doesn't have TransformStream; fallback to manual writer via res
-  // Use lib/sse writer pattern with Express response
-
   // Minimal Express-compatible SSE
   const id = addClient({
     write: async (chunk: Uint8Array) => new Promise<void>((resolve, reject) => {

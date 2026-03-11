@@ -5,7 +5,18 @@ import path from 'path';
 import { v2 as cloudinary } from 'cloudinary';
 import { assertAdmin } from '../session.js';
 
-const upload = multer({ limits: { fileSize: 5 * 1024 * 1024 } });
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'];
+
+const upload = multer({
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type ${file.mimetype} is not allowed. Only JPEG, PNG, WebP, AVIF, and GIF are accepted.`));
+    }
+  }
+});
 const router = Router();
 
 const REQUIRED = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'] as const;

@@ -8,7 +8,7 @@ const csp = [
   `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
   // Allow inline styles for CSS-in-JS/Tailwind runtime style tags
   `style-src 'self' 'unsafe-inline'`,
-  "img-src 'self' data: blob: https://images.unsplash.com https://source.unsplash.com https://loremflickr.com https://images.pexels.com https://cdn.pixabay.com https://res.cloudinary.com https://www.google.com",
+  "img-src 'self' data: blob: https://images.unsplash.com https://source.unsplash.com https://loremflickr.com https://images.pexels.com https://cdn.pixabay.com https://encrypted-tbn0.gstatic.com https://res.cloudinary.com https://www.google.com",
   "font-src 'self'",
   "connect-src 'self'",
   "worker-src 'self' blob:",

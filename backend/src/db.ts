@@ -15,6 +15,9 @@ export async function dbConnect() {
       serverSelectionTimeoutMS: 8000,
       maxPoolSize: 5,
       minPoolSize: 0
+    }).catch((err) => {
+      promise = null;
+      throw err;
     });
   }
   await promise;

@@ -62,6 +62,28 @@ router.post('/', writeLimiter, async (req, res) => {
       }
     }
 
+    // Atomically check and decrement stock before creating the order
+    for (const adj of stockAdjustments.values()) {
+      const result = await MenuItem.findOneAndUpdate(
+        { _id: adj.id, stock: { $gte: adj.quantity } },
+        [
+          { $set: { stock: { $subtract: ['$stock', adj.quantity] } } },
+          { $set: { isAvailable: { $cond: [{ $lte: ['$stock', 0] }, false, '$isAvailable'] } } }
+        ] as any,
+        { new: true }
+      );
+      if (!result) {
+        // Insufficient stock — roll back any decrements already applied
+        for (const prev of stockAdjustments.values()) {
+          if (prev.id.equals(adj.id)) break;
+          await MenuItem.findByIdAndUpdate(prev.id, { $inc: { stock: prev.quantity } });
+        }
+        const mi = await MenuItem.findById(adj.id).lean();
+        const available = mi?.stock ?? 0;
+        return res.status(409).json({ error: `Insufficient stock for "${mi?.name ?? adj.id}". Available: ${available}, requested: ${adj.quantity}` });
+      }
+    }
+
     const payload: any = {
       tableNumber: String(tableNumber),
       status,
@@ -73,17 +95,6 @@ router.post('/', writeLimiter, async (req, res) => {
     };
 
     const doc = await Order.create(payload);
-
-    for (const adj of stockAdjustments.values()) {
-      await MenuItem.findByIdAndUpdate(
-        adj.id,
-        [
-          { $set: { stock: { $let: { vars: { current: { $ifNull: ['$stock', 0] } }, in: { $max: [{ $subtract: ['$$current', adj.quantity] }, 0] } } } } },
-          { $set: { isAvailable: { $cond: [{ $lte: ['$stock', 0] }, false, '$isAvailable'] } } }
-        ] as any,
-        { new: false }
-      );
-    }
     invalidateCache('menu:');
     invalidateCache('analytics:');
 

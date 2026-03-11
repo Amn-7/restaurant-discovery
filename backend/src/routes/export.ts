@@ -2,10 +2,11 @@ import { Router } from 'express';
 import { dbConnect } from '../db.js';
 import Order from '../shared/models/Order.js';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { assertAdmin } from '../session.js';
 
 const router = Router();
 
-router.get('/', async (req, res) => {
+router.get('/', assertAdmin, async (req, res) => {
   try {
     await dbConnect();
     const { hours = '24', table, status, format = 'pdf' } = req.query as Record<string, string>;
